@@ -1,0 +1,94 @@
+import { supabase } from '../lib/supabase';
+import { buildTodayFeed, type TodayInput, type TodayItem } from '../domain/today';
+
+function dayBoundsISO(now = new Date()): { start: string; end: string } {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+// Fetches the household's Today-relevant rows and reduces them to an ordered
+// feed of exceptions and decisions. All reads are RLS-scoped to the household.
+export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> {
+  const { start, end } = dayBoundsISO();
+
+  const [membersRes, ridesRes, mealsRes, annRes, tasksRes, maintRes, profilesRes] = await Promise.all([
+    supabase
+      .from('household_memberships')
+      .select('id', { count: 'exact', head: true })
+      .eq('household_id', householdId)
+      .eq('state', 'active'),
+    supabase
+      .from('rides')
+      .select('id,driver_id,destination_text,pickup_text,state')
+      .eq('household_id', householdId)
+      .in('state', ['needed', 'offered', 'assigned', 'confirmed'])
+      .is('deleted_at', null),
+    supabase
+      .from('meals')
+      .select('id,title,planned_at')
+      .eq('household_id', householdId)
+      .gte('planned_at', start)
+      .lte('planned_at', end)
+      .is('deleted_at', null),
+    supabase
+      .from('announcements')
+      .select('id,title,state')
+      .eq('household_id', householdId)
+      .eq('state', 'active')
+      .is('deleted_at', null),
+    supabase
+      .from('tasks')
+      .select('id,title,owner_id,state')
+      .eq('household_id', householdId)
+      .not('state', 'in', '(completed,verified,canceled,skipped)')
+      .is('deleted_at', null),
+    supabase
+      .from('maintenance_issues')
+      .select('id,title,state')
+      .eq('household_id', householdId)
+      .not('state', 'in', '(resolved,closed)')
+      .is('deleted_at', null),
+    supabase.from('profiles').select('id,display_name'),
+  ]);
+
+  for (const res of [membersRes, ridesRes, mealsRes, annRes, tasksRes, maintRes, profilesRes]) {
+    if (res.error) throw res.error;
+  }
+
+  const mealRows = mealsRes.data ?? [];
+  const respByMeal: Record<string, number> = {};
+  if (mealRows.length > 0) {
+    const { data: resp, error } = await supabase
+      .from('meal_responses')
+      .select('meal_id')
+      .in('meal_id', mealRows.map((m) => m.id));
+    if (error) throw error;
+    for (const row of resp ?? []) respByMeal[row.meal_id] = (respByMeal[row.meal_id] ?? 0) + 1;
+  }
+
+  const nameById: Record<string, string> = {};
+  for (const p of profilesRes.data ?? []) nameById[p.id] = p.display_name;
+
+  const input: TodayInput = {
+    activeMemberCount: membersRes.count ?? 0,
+    rides: (ridesRes.data ?? []).map((r) => ({
+      id: r.id,
+      driverId: r.driver_id,
+      destination: r.destination_text,
+      pickup: r.pickup_text,
+    })),
+    meals: mealRows.map((m) => ({ id: m.id, title: m.title, respondedCount: respByMeal[m.id] ?? 0 })),
+    announcements: (annRes.data ?? []).map((a) => ({ id: a.id, title: a.title })),
+    tasks: (tasksRes.data ?? []).map((t) => ({
+      id: t.id,
+      title: t.title,
+      ownerName: t.owner_id ? nameById[t.owner_id] ?? null : null,
+    })),
+    maintenance: (maintRes.data ?? []).map((m) => ({ id: m.id, title: m.title })),
+  };
+
+  return buildTodayFeed(input);
+}

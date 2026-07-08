@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Home v2",
+    "slug": "home-v2",
+    "scheme": "homev2",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.greenhousehold.homev2"
+    },
+    "android": {
+      "package": "com.greenhousehold.homev2"
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-secure-store"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "extra": {}
+  }
+}

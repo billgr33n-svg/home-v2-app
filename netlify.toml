@@ -1,0 +1,17 @@
+# Netlify build config for the Home v2 web app (Route B: cloud build from Git).
+# Netlify runs this on its servers — no local Node needed.
+# Supabase values are NOT committed; set them in Netlify → Site → Environment
+# variables: EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.
+
+[build]
+  command = "npx expo export --platform web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Single-page app: serve index.html for any path.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

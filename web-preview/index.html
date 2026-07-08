@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home v2 — interactive demo</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eef0f4; color: #1c2030; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .page { max-width: 760px; margin: 0 auto; padding: 32px 20px 60px; }
+  .lead h1 { font-size: 24px; font-weight: 600; margin: 0 0 6px; }
+  .lead p { margin: 0 0 4px; color: #4a5068; font-size: 15px; line-height: 1.55; }
+  .cols { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; margin-top: 24px; }
+  .phoneWrap { background: #dfe3ea; border-radius: 30px; padding: 18px; }
+  .notes { flex: 1; min-width: 240px; font-size: 14px; color: #3a4056; line-height: 1.6; }
+  .notes h2 { font-size: 15px; margin: 4px 0 8px; }
+  .notes ul { margin: 0 0 16px; padding-left: 18px; }
+  .notes li { margin-bottom: 7px; }
+  .foot { margin-top: 22px; font-size: 12px; color: #8a90a2; }
+
+  #phone * { box-sizing: border-box; }
+  #phone { width: 330px; height: 648px; background: #0f1220; border: 9px solid #23263a; border-radius: 36px; overflow: hidden; display: flex; flex-direction: column; font-family: inherit; }
+  #hdr { padding: 18px 22px 10px; display: flex; justify-content: space-between; align-items: flex-start; flex: 0 0 auto; }
+  #app { flex: 1; overflow-y: auto; }
+  #app::-webkit-scrollbar { width: 0; }
+  #tabs { display: flex; border-top: 1px solid #242844; padding-bottom: 6px; flex: 0 0 auto; }
+  #tabs button { flex: 1; background: none; border: none; padding: 12px 2px; font-size: 12px; font-weight: 500; color: #6b6f8c; cursor: pointer; font-family: inherit; }
+  #tabs button.on { color: #fff; }
+  #phone .k { color: #8a8fb0; font-size: 12px; letter-spacing: 2px; }
+  #phone .h1 { color: #fff; font-size: 24px; font-weight: 600; margin-top: 3px; }
+  #phone .so { color: #6b6f8c; font-size: 13px; background: none; border: none; cursor: pointer; font-family: inherit; }
+  #phone .card { background: #161a2e; border-radius: 14px; padding: 14px; margin: 0 20px 10px; }
+  #phone .pill { border: 1px solid #3a3f60; border-radius: 999px; padding: 8px 14px; color: #c4c8e0; font-size: 14px; background: none; cursor: pointer; font-family: inherit; }
+  #phone .pill.on { background: #7c9bff; border-color: #7c9bff; color: #0f1220; font-weight: 600; }
+  #phone .btn { background: #7c9bff; border: none; border-radius: 10px; padding: 9px 16px; color: #0f1220; font-weight: 600; font-size: 14px; cursor: pointer; font-family: inherit; }
+  #phone .btn2 { background: none; border: 1px solid #3a3f60; border-radius: 10px; padding: 9px 16px; color: #c4c8e0; font-weight: 500; font-size: 14px; cursor: pointer; font-family: inherit; }
+  #phone .inp { width: 100%; background: #1a1e33; color: #fff; border: none; border-radius: 12px; padding: 12px 16px; font-size: 15px; font-family: inherit; margin-bottom: 10px; }
+  #phone .inp::placeholder { color: #6b6f8c; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="lead">
+    <h1>Home v2 — interactive demo</h1>
+    <p>A faithful reproduction of the app's Today, Rides, Meals, News, and Polls tabs, running the real domain logic against the Green-household seed data. Every tap works. This is the UI and logic, not the native build — real push and the live database attach when the Expo app boots on a device.</p>
+  </div>
+  <div class="cols">
+    <div class="phoneWrap">
+      <div id="phone">
+        <div id="hdr"></div>
+        <div id="app"></div>
+        <div id="tabs"></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h2>Try this</h2>
+      <ul>
+        <li><b>Rides → Claim driver.</b> Return to Today: the ride drops from a red "needs a driver" decision to a quiet blue line.</li>
+        <li><b>Meals → answer dinner.</b> You're the outstanding response. Tap Home and watch Today's dinner flag clear.</li>
+        <li><b>Polls.</b> Create a poll, answer it, close it.</li>
+        <li><b>News.</b> Post an announcement.</li>
+        <li><b>Shop.</b> Add a shopping item, check it off, and tap an approximate pantry item to cycle its level.</li>
+        <li><b>Tasks.</b> Claim the Unassigned task, or complete one. Recurring chores are badged.</li>
+        <li><b>Upkeep.</b> The furnace filter is overdue — mark it done to reset the cadence.</li>
+      </ul>
+      <h2>What you won't see</h2>
+      <ul>
+        <li>The Rivera household's data — every query is scoped to your household. That boundary is enforced in the database (row-level security), proven separately; here it's just reproduced.</li>
+      </ul>
+      <p class="foot">Green household seed: Bill, Sandy, Will, Matt, Cora. Demo is single-user (you act as Bill).</p>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var USER='Bill';
+  var MEMBERS=['Bill','Sandy','Will','Matt','Cora'];
+  var PC={P0:'#ff6b6b',P1:'#ffb86b',P2:'#7c9bff'};
+  var KIND={ride_unassigned:'Ride',ride:'Ride',dinner_response_needed:'Dinner',announcement:'Announcement',task_due:'Task',maintenance:'Home'};
+  var TITLE={today:'Today',rides:'Rides',meals:'Meals',announce:'News',polls:'Polls',shop:'Shop',tasks:'Tasks',upkeep:'Upkeep'};
+  var ATT={home:1,save_plate:1,guest:1};
+  var RESP_LABEL={home:'Home',away:'Away',save_plate:'Save a plate'};
+  var LVL={plenty:'Plenty',some:'Some',low:'Low',out:'Out',unknown:'Unknown'};
+  var CYCLE=['plenty','some','low','out'];
+  var s={
+    tab:'today',
+    rides:[{id:'r1',destination:'Eastside Soccer Complex',pickup:'Green Home',state:'needed',driver:null,version:1}],
+    meals:[{id:'m1',title:'Chicken tacos',time:'6:15 PM',responses:{Sandy:'home',Will:'home',Matt:'away',Cora:'home'}}],
+    announcements:[{id:'a1',title:'Plumber today 2-4pm',body:'Plumber coming for the kitchen sink between 2:00 and 4:00pm. Someone be home.'}],
+    tasks:[{id:'t1',title:'Take out trash tonight',owner:'Matt'}],
+    maintenance:[{id:'mi1',title:'Upstairs HVAC filter overdue'}],
+    shopping:[{id:'sh1',name:'Milk',detail:'2 gal · Kroger',done:false},{id:'sh2',name:'Birthday candles',detail:null,done:false},{id:'sh3',name:'Paper towels',detail:null,done:true}],
+    inventory:[{id:'in1',name:'Milk',category:'Dairy',approx:true,level:'low'},{id:'in2',name:'Eggs',category:'Dairy',approx:false,label:'3 count',restock:true},{id:'in3',name:'Tortillas',category:'Pantry',approx:false,label:'12 count',restock:false},{id:'in4',name:'Coffee',category:'Pantry',approx:true,level:'plenty'},{id:'in5',name:'Dish soap',category:'Household',approx:true,level:'out'}],
+    taskList:[{id:'t1',title:'Water the front garden',owner:null,priority:'high',recurring:false,state:'open'},{id:'t2',title:'Take out trash tonight',owner:'Matt',priority:'normal',recurring:false,state:'open'},{id:'t3',title:'Kitchen trash and recycling',owner:'Matt',priority:'normal',recurring:true,state:'open'}],
+    upkeep:[{id:'m1',title:'Replace furnace filter',asset:'Furnace (HVAC)',status:'overdue',dueLabel:'Overdue by 5 days'},{id:'m2',title:'Test and replace batteries',asset:'Smoke detectors',status:'due_soon',dueLabel:'Due in 10 days'},{id:'m3',title:'Clean gutters',asset:'Gutters',status:'ok',dueLabel:'Due in 120 days'}],
+    polls:[], escalateOpen:null, escSentFor:null, pollError:null
+  };
+  function esc(x){return (x==null?'':String(x)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function todayFeed(){
+    var items=[];
+    s.rides.forEach(function(r){var un=r.driver==null;items.push({kind:un?'ride_unassigned':'ride',title:un?('Ride needs a driver: '+r.destination):('Ride to '+r.destination),detail:r.pickup?('From '+r.pickup):null,priority:un?'P0':'P2',needsDecision:un});});
+    s.meals.forEach(function(m){var responded=Object.keys(m.responses).length;var miss=MEMBERS.length-responded;if(miss>0)items.push({kind:'dinner_response_needed',title:'Dinner: '+m.title,detail:miss+' response'+(miss===1?'':'s')+' outstanding',priority:'P1',needsDecision:true});});
+    s.announcements.forEach(function(a){items.push({kind:'announcement',title:a.title,detail:null,priority:'P2',needsDecision:false});});
+    s.tasks.forEach(function(t){items.push({kind:'task_due',title:t.title,detail:t.owner?('Owner: '+t.owner):'Unassigned',priority:'P1',needsDecision:t.owner==null});});
+    s.maintenance.forEach(function(mi){items.push({kind:'maintenance',title:mi.title,detail:null,priority:'P2',needsDecision:false});});
+    var rank={P0:0,P1:1,P2:2};
+    return items.map(function(it,i){return {it:it,i:i};}).sort(function(a,b){return (rank[a.it.priority]-rank[b.it.priority])||(a.i-b.i);}).map(function(x){return x.it;});
+  }
+  function rideView(r){
+    var nd=r.driver==null&&(r.state==='needed'||r.state==='offered');
+    var sl=nd?'Needs a driver':({offered:'Offer pending',assigned:'Driver assigned',confirmed:'Confirmed'}[r.state]||'Needed');
+    return {needsDriver:nd,statusLabel:sl,ownerLabel:r.driver||'Unassigned'};
+  }
+  function dinner(meal){
+    var out=MEMBERS.filter(function(m){return !(m in meal.responses);});
+    var home=0,away=0;
+    MEMBERS.forEach(function(m){var r=meal.responses[m];if(!r)return;if(ATT[r])home++;else if(r==='away')away++;});
+    return {outstanding:out,home:home,away:away,head:home,complete:out.length===0};
+  }
+  function headerHTML(){return '<div><div class="k">GREEN HOUSEHOLD</div><div class="h1">'+TITLE[s.tab]+'</div></div><button class="so" data-action="signout">Sign out</button>';}
+  function tabsHTML(){return ['today','rides','meals','announce','polls','shop','tasks','upkeep'].map(function(k){return '<button class="'+(s.tab===k?'on':'')+'" data-action="tab" data-id="'+k+'">'+TITLE[k]+'</button>';}).join('');}
+  function todayHTML(){
+    var f=todayFeed();
+    if(!f.length)return '<div style="text-align:center;padding-top:120px"><div style="color:#fff;font-size:18px;font-weight:600">All clear</div><div style="color:#8a8fb0;font-size:15px;margin-top:6px">No decisions or exceptions for today.</div></div>';
+    return '<div style="height:14px"></div>'+f.map(function(it){
+      return '<div class="card" style="display:flex;gap:12px">'
+        +'<div style="width:10px;height:10px;border-radius:5px;margin-top:6px;flex:0 0 auto;background:'+PC[it.priority]+'"></div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="display:flex;align-items:center;gap:8px"><span style="color:#8a8fb0;font-size:12px;letter-spacing:1px">'+KIND[it.kind]+'</span>'+(it.needsDecision?'<span style="color:#ffb86b;font-size:11px;font-weight:600;letter-spacing:.5px">NEEDS DECISION</span>':'')+'</div>'
+          +'<div style="color:#fff;font-size:16px;font-weight:600;margin-top:3px">'+esc(it.title)+'</div>'
+          +(it.detail?'<div style="color:#a6abcc;font-size:14px;margin-top:2px">'+esc(it.detail)+'</div>':'')
+        +'</div></div>';
+    }).join('');
+  }
+  function ridesHTML(){
+    return '<div style="height:14px"></div>'+s.rides.map(function(r){
+      var v=rideView(r);
+      return '<div class="card" style="'+(v.needsDriver?'border:1px solid #ff6b6b':'')+'">'
+        +'<div style="color:#fff;font-size:16px;font-weight:600">'+esc(r.destination)+'</div>'
+        +'<div style="color:#a6abcc;font-size:14px;margin-top:6px">'+v.statusLabel+' · '+v.ownerLabel+'</div>'
+        +'<div style="display:flex;gap:10px;margin-top:12px">'
+          +(v.needsDriver?'<button class="btn" data-action="claim" data-id="'+r.id+'">Claim driver</button>':'')
+          +'<button class="btn2" data-action="esc-toggle" data-id="'+r.id+'">Escalate</button>'
+        +'</div>'
+        +(s.escalateOpen===r.id?'<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px"><input class="inp" id="esc-note" placeholder="What’s the problem?" style="margin:0"><button class="btn" data-action="esc-send" data-id="'+r.id+'" style="align-self:flex-start">Send</button></div>':'')
+        +(s.escSentFor===r.id?'<div style="color:#7c9bff;font-size:13px;margin-top:8px">Escalation sent to the household.</div>':'')
+      +'</div>';
+    }).join('');
+  }
+  function mealsHTML(){
+    return '<div style="height:14px"></div>'+s.meals.map(function(m){
+      var d=dinner(m);
+      var label=d.complete?('All answered · '+d.head+' for dinner'):(d.outstanding.length+' to answer · '+d.home+' in, '+d.away+' out');
+      var mine=m.responses[USER];
+      var pills=['home','away','save_plate'].map(function(v){return '<button class="pill '+(mine===v?'on':'')+'" data-action="dinner" data-id="'+m.id+'" data-resp="'+v+'">'+RESP_LABEL[v]+'</button>';}).join('');
+      var waiting=d.outstanding.length?('<div style="color:#ffb86b;font-size:13px;margin-top:2px">Waiting on '+d.outstanding.join(', ')+'</div>'):'<div style="color:#7c9bff;font-size:13px;margin-top:2px">Everyone has answered</div>';
+      return '<div class="card">'
+        +'<div style="color:#fff;font-size:16px;font-weight:600">'+esc(m.title)+'</div>'
+        +'<div style="color:#a6abcc;font-size:14px;margin-top:6px">'+m.time+' · '+label+'</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'+pills+'</div>'
+        +waiting
+      +'</div>';
+    }).join('');
+  }
+  function announceHTML(){
+    var comp='<div style="padding:18px 20px 4px"><input class="inp" id="ann-title" placeholder="Announcement title"><textarea class="inp" id="ann-body" placeholder="Details (optional)" style="min-height:58px;resize:none"></textarea><button class="btn" data-action="ann-post" style="width:100%;border-radius:12px;padding:13px">Post announcement</button></div>';
+    var list=s.announcements.length?s.announcements.map(function(a){return '<div class="card"><div style="color:#fff;font-size:16px;font-weight:600">'+esc(a.title)+'</div>'+(a.body?'<div style="color:#a6abcc;font-size:14px;line-height:20px;margin-top:6px">'+esc(a.body)+'</div>':'')+'</div>';}).join(''):'<div style="color:#8a8fb0;text-align:center;margin-top:24px;font-size:15px">No active announcements.</div>';
+    return comp+list;
+  }
+  function pollsHTML(){
+    var comp='<div style="padding:18px 20px 4px"><input class="inp" id="poll-q" placeholder="Poll question"><input class="inp" id="poll-opts" placeholder="Options, comma separated"><button class="btn" data-action="poll-create" style="width:100%;border-radius:12px;padding:13px">Create poll</button>'+(s.pollError?'<div style="color:#ff9a9a;font-size:14px;margin-top:8px">'+esc(s.pollError)+'</div>':'')+'</div>';
+    var list=s.polls.length?s.polls.map(function(p){
+      var resp=Object.keys(p.responses).length;
+      var tallyTxt=(resp===MEMBERS.length?'All responded':resp+' of '+MEMBERS.length+' responded')+(p.closed?' · closed':'');
+      return '<div class="card"><div style="color:#fff;font-size:16px;font-weight:600">'+esc(p.question)+'</div>'
+        +'<div style="color:#8a8fb0;font-size:13px;margin-top:8px">'+tallyTxt+'</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'+p.options.map(function(o){return '<button class="pill '+(p.responses[USER]===o?'on':'')+'" '+(p.closed?'disabled style="opacity:.55;cursor:default"':'')+' data-action="poll-respond" data-id="'+p.id+'" data-opt="'+esc(o)+'">'+esc(o)+'</button>';}).join('')+'</div>'
+        +(!p.closed?'<button data-action="poll-close" data-id="'+p.id+'" style="background:none;border:none;color:#8a8fb0;font-size:13px;margin-top:10px;cursor:pointer;padding:0;font-family:inherit">Close poll</button>':'')
+      +'</div>';
+    }).join(''):'<div style="color:#8a8fb0;text-align:center;margin-top:24px;font-size:15px">No polls yet.</div>';
+    return comp+list;
+  }
+  function invView(it){ if(it.approx){return {label:LVL[it.level],restock:(it.level==='low'||it.level==='out')};} return {label:it.label,restock:it.restock}; }
+  function shopRow(it,done){
+    return '<div class="card" data-action="shop-toggle" data-id="'+it.id+'" style="display:flex;align-items:center;gap:12px;cursor:pointer">'
+      +'<div style="width:22px;height:22px;border-radius:11px;flex:0 0 auto;'+(done?'background:#7c9bff;border:2px solid #7c9bff;color:#0f1220;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600':'border:2px solid #3a3f60')+'">'+(done?'✓':'')+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="color:'+(done?'#6b6f8c':'#fff')+';font-size:15px;font-weight:500;'+(done?'text-decoration:line-through':'')+'">'+esc(it.name)+'</div>'+((it.detail&&!done)?'<div style="color:#a6abcc;font-size:13px;margin-top:2px">'+esc(it.detail)+'</div>':'')+'</div>'
+    +'</div>';
+  }
+  function shopHTML(){
+    var comp='<div style="padding:16px 20px 4px;display:flex;gap:8px"><input class="inp" id="shop-add" placeholder="Add to shopping list" style="margin:0"><button class="btn" data-action="shop-add" style="flex:0 0 auto">Add</button></div>';
+    var open=s.shopping.filter(function(x){return !x.done;});
+    var done=s.shopping.filter(function(x){return x.done;});
+    var listHTML='';
+    if(open.length+done.length===0){listHTML='<div style="color:#8a8fb0;padding:0 20px;font-size:15px">Shopping list is empty.</div>';}
+    else{listHTML+=open.map(function(it){return shopRow(it,false);}).join('');if(done.length){listHTML+='<div style="color:#6b6f8c;font-size:12px;margin:8px 20px 4px">Bought</div>';listHTML+=done.map(function(it){return shopRow(it,true);}).join('');}}
+    var invSorted=s.inventory.map(function(it){return {it:it,v:invView(it)};}).sort(function(a,b){return (a.v.restock===b.v.restock)?a.it.name.localeCompare(b.it.name):(a.v.restock?-1:1);});
+    var invHTML=invSorted.map(function(o){var it=o.it,v=o.v;
+      return '<div class="card" data-action="'+(it.approx?'inv-cycle':'noop')+'" data-id="'+it.id+'" style="display:flex;align-items:center;gap:12px;'+(it.approx?'cursor:pointer':'')+'">'
+        +'<div style="flex:1;min-width:0"><div style="color:#fff;font-size:15px;font-weight:500">'+esc(it.name)+'</div><div style="color:#a6abcc;font-size:13px;margin-top:2px">'+it.category+(it.approx?' · tap to update':'')+'</div></div>'
+        +'<div style="text-align:right">'+(v.restock?'<div style="color:#ffb86b;font-size:10px;font-weight:600;letter-spacing:.5px">RESTOCK</div>':'')+'<div style="color:#c4c8e0;font-size:14px">'+v.label+'</div></div>'
+      +'</div>';
+    }).join('');
+    return comp+'<div style="color:#8a8fb0;font-size:12px;letter-spacing:1.5px;margin:14px 20px 8px">SHOPPING LIST</div>'+listHTML+'<div style="color:#8a8fb0;font-size:12px;letter-spacing:1.5px;margin:16px 20px 8px">INVENTORY</div>'+invHTML;
+  }
+  function tasksHTML(){
+    var comp='<div style="padding:16px 20px 4px;display:flex;gap:8px"><input class="inp" id="task-add" placeholder="Add a task" style="margin:0"><button class="btn" data-action="task-add" style="flex:0 0 auto">Add</button></div>';
+    var PRANK={urgent:0,high:1,normal:2,low:3};
+    var open=s.taskList.filter(function(t){return t.state==='open';});
+    var sorted=open.slice().sort(function(a,b){var au=a.owner==null,bu=b.owner==null;return au!==bu?(au?-1:1):PRANK[a.priority]-PRANK[b.priority];});
+    var list=sorted.length?sorted.map(function(t){var un=t.owner==null;
+      return '<div class="card" style="'+(un?'border:1px solid #ffb86b':'')+'">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="color:#fff;font-size:16px;font-weight:500;flex:1">'+esc(t.title)+'</div>'+(t.recurring?'<div style="color:#7c9bff;font-size:10px;font-weight:600;letter-spacing:.5px">REPEATS</div>':'')+'</div>'
+        +'<div style="color:#a6abcc;font-size:14px;margin-top:6px">Not started · '+(t.owner||'Unassigned')+'</div>'
+        +'<div style="display:flex;gap:10px;margin-top:12px">'+(un?'<button class="btn" data-action="task-claim" data-id="'+t.id+'">Claim</button>':'')+'<button class="btn2" data-action="task-complete" data-id="'+t.id+'">Complete</button></div>'
+      +'</div>';
+    }).join(''):'<div style="color:#8a8fb0;text-align:center;margin-top:24px;font-size:15px">No open tasks. All handled.</div>';
+    return comp+list;
+  }
+  function upkeepHTML(){
+    var SC={overdue:'#ff6b6b',due_soon:'#ffb86b',ok:'#7c9bff'};
+    var RANK={overdue:0,due_soon:1,ok:2};
+    var sorted=s.upkeep.slice().sort(function(a,b){return RANK[a.status]-RANK[b.status];});
+    return '<div style="height:14px"></div>'+sorted.map(function(m){
+      return '<div class="card" style="display:flex;align-items:center;gap:12px">'
+        +'<div style="width:10px;height:10px;border-radius:5px;flex:0 0 auto;background:'+SC[m.status]+'"></div>'
+        +'<div style="flex:1;min-width:0"><div style="color:#fff;font-size:16px;font-weight:500">'+esc(m.title)+'</div><div style="color:#a6abcc;font-size:14px;margin-top:2px">'+esc(m.asset)+' · '+m.dueLabel+'</div></div>'
+        +'<button class="btn2" data-action="maint-done" data-id="'+m.id+'">Mark done</button>'
+      +'</div>';
+    }).join('');
+  }
+  function bodyHTML(){return s.tab==='today'?todayHTML():s.tab==='rides'?ridesHTML():s.tab==='meals'?mealsHTML():s.tab==='announce'?announceHTML():s.tab==='polls'?pollsHTML():s.tab==='shop'?shopHTML():s.tab==='tasks'?tasksHTML():upkeepHTML();}
+  function render(){
+    document.getElementById('hdr').innerHTML=headerHTML();
+    document.getElementById('app').innerHTML=bodyHTML();
+    document.getElementById('tabs').innerHTML=tabsHTML();
+  }
+  document.getElementById('phone').addEventListener('click',function(e){
+    var el=e.target.closest('[data-action]'); if(!el)return;
+    var a=el.dataset.action, id=el.dataset.id;
+    if(a==='tab'){s.tab=id;s.escalateOpen=null;s.escSentFor=null;s.pollError=null;render();document.getElementById('app').scrollTop=0;}
+    else if(a==='claim'){var r=s.rides.filter(function(x){return x.id===id;})[0];if(r&&r.driver==null&&(r.state==='needed'||r.state==='offered')){r.driver=USER;r.state='assigned';r.version++;}render();}
+    else if(a==='esc-toggle'){s.escalateOpen=(s.escalateOpen===id?null:id);s.escSentFor=null;render();}
+    else if(a==='esc-send'){var n=document.getElementById('esc-note');if(n&&n.value.trim()){s.escalateOpen=null;s.escSentFor=id;render();}}
+    else if(a==='dinner'){var m=s.meals.filter(function(x){return x.id===id;})[0];if(m){m.responses[USER]=el.dataset.resp;}render();}
+    else if(a==='ann-post'){var t=document.getElementById('ann-title'),b=document.getElementById('ann-body');if(t&&t.value.trim()){s.announcements.unshift({id:'a'+Date.now(),title:t.value.trim(),body:b?b.value.trim():''});render();}}
+    else if(a==='poll-create'){var q=document.getElementById('poll-q'),o=document.getElementById('poll-opts');var opts=(o?o.value:'').split(',').map(function(x){return x.trim();}).filter(Boolean);if(!q||!q.value.trim()||opts.length<2){s.pollError='Add a question and at least two options.';}else{s.polls.unshift({id:'p'+Date.now(),question:q.value.trim(),options:opts,responses:{},closed:false});s.pollError=null;}render();}
+    else if(a==='poll-respond'){var p=s.polls.filter(function(x){return x.id===id;})[0];if(p&&!p.closed){p.responses[USER]=el.dataset.opt;}render();}
+    else if(a==='poll-close'){var p2=s.polls.filter(function(x){return x.id===id;})[0];if(p2){p2.closed=true;}render();}
+    else if(a==='shop-add'){var sn=document.getElementById('shop-add');if(sn&&sn.value.trim()){s.shopping.push({id:'sh'+Date.now(),name:sn.value.trim(),detail:null,done:false});render();}}
+    else if(a==='shop-toggle'){var si=s.shopping.filter(function(x){return x.id===id;})[0];if(si){si.done=!si.done;}render();}
+    else if(a==='inv-cycle'){var iv=s.inventory.filter(function(x){return x.id===id;})[0];if(iv&&iv.approx){var ci=CYCLE.indexOf(iv.level);iv.level=CYCLE[(ci+1)%CYCLE.length];}render();}
+    else if(a==='task-add'){var tn=document.getElementById('task-add');if(tn&&tn.value.trim()){s.taskList.push({id:'t'+Date.now(),title:tn.value.trim(),owner:null,priority:'normal',recurring:false,state:'open'});render();}}
+    else if(a==='task-claim'){var tc=s.taskList.filter(function(x){return x.id===id;})[0];if(tc){tc.owner=USER;}render();}
+    else if(a==='task-complete'){var tk=s.taskList.filter(function(x){return x.id===id;})[0];if(tk&&!tk.recurring){tk.state='done';}render();}
+    else if(a==='maint-done'){var mm=s.upkeep.filter(function(x){return x.id===id;})[0];if(mm){mm.status='ok';mm.dueLabel='Due in 90 days';}render();}
+  });
+  render();
+})();
+</script>
+</body>
+</html>
