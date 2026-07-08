@@ -5,6 +5,9 @@ export interface MealView {
   id: string;
   title: string;
   plannedAt: string;
+  status: string;
+  cookName: string | null;
+  iAmCook: boolean;
   summary: DinnerSummary;
   myResponse: MealResponse | null;
   outstandingNames: string[];
@@ -13,6 +16,12 @@ export interface MealView {
 function startOfTodayISO(now = new Date()): string {
   const d = new Date(now);
   d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function tonightISO(now = new Date()): string {
+  const d = new Date(now);
+  d.setHours(18, 0, 0, 0);
   return d.toISOString();
 }
 
@@ -26,7 +35,7 @@ export async function fetchMeals(householdId: string): Promise<MealView[]> {
   const [mealsRes, membersRes, respRes, profilesRes] = await Promise.all([
     supabase
       .from('meals')
-      .select('id,title,planned_at')
+      .select('id,title,planned_at,status,prep_owner_id')
       .eq('household_id', householdId)
       .gte('planned_at', startOfTodayISO())
       .is('deleted_at', null)
@@ -69,6 +78,9 @@ export async function fetchMeals(householdId: string): Promise<MealView[]> {
       id: m.id,
       title: m.title,
       plannedAt: m.planned_at,
+      status: m.status ?? 'planned',
+      cookName: m.prep_owner_id ? nameById[m.prep_owner_id] ?? 'Someone' : null,
+      iAmCook: Boolean(m.prep_owner_id) && m.prep_owner_id === uid,
       summary,
       myResponse: resps.find((r) => r.userId === uid)?.response ?? null,
       outstandingNames: summary.outstandingIds.map((id) => nameById[id] ?? 'Someone'),
@@ -84,5 +96,40 @@ export async function respondToDinner(mealId: string, response: MealResponse): P
   const { error } = await supabase
     .from('meal_responses')
     .upsert({ meal_id: mealId, user_id: uid, response }, { onConflict: 'meal_id,user_id' });
+  if (error) throw error;
+}
+
+// Plan a meal for tonight ('planned') or log a meal request/suggestion
+// ('requested'). RLS allows any active household member to insert.
+export async function createMeal(
+  householdId: string,
+  title: string,
+  status: 'planned' | 'requested',
+  plannedAt?: string,
+): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
+  if (!uid) throw new Error('not signed in');
+  const { error } = await supabase.from('meals').insert({
+    household_id: householdId,
+    created_by: uid,
+    title,
+    planned_at: plannedAt ?? tonightISO(),
+    status,
+  });
+  if (error) throw error;
+}
+
+// Sign up to cook (assign=true sets you as the meal's cook) or drop it
+// (assign=false clears the cook). Assigning someone else comes with the
+// member picker (#6).
+export async function setMealCook(mealId: string, assign: boolean): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
+  if (!uid) throw new Error('not signed in');
+  const { error } = await supabase
+    .from('meals')
+    .update({ prep_owner_id: assign ? uid : null })
+    .eq('id', mealId);
   if (error) throw error;
 }

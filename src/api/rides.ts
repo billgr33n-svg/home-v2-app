@@ -48,3 +48,25 @@ export async function postRideUpdate(
   });
   if (error) throw error;
 }
+
+// Create a new, unassigned ride request (state 'needed'). RLS allows any active
+// household member to insert into their own household.
+export async function requestRide(
+  householdId: string,
+  destination: string,
+  pickup: string,
+  departBy: string | null,
+): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
+  if (!uid) throw new Error('not signed in');
+  const { error } = await supabase.from('rides').insert({
+    household_id: householdId,
+    requester_id: uid,
+    destination_text: destination,
+    pickup_text: pickup,
+    depart_by: departBy,
+    state: 'needed',
+  });
+  if (error) throw error;
+}

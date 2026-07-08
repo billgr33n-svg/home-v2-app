@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { claimRide, postRideUpdate } from '../api/rides';
+import { claimRide, postRideUpdate, requestRide } from '../api/rides';
 import { useOpenRides } from '../hooks/useRides';
 import type { RideView } from '../domain/rides';
 
@@ -18,7 +18,29 @@ export function RidesScreen({ householdId }: { householdId: string }) {
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // New-ride request form.
+  const [dest, setDest] = useState('');
+  const [pickup, setPickup] = useState('');
+  const [adding, setAdding] = useState(false);
+
   const refresh = () => qc.invalidateQueries({ queryKey: ['rides', householdId] });
+
+  const request = async () => {
+    if (!dest.trim()) return;
+    setAdding(true);
+    setError(null);
+    try {
+      await requestRide(householdId, dest.trim(), pickup.trim() || 'Home', null);
+      setDest('');
+      setPickup('');
+      await refresh();
+      await qc.invalidateQueries({ queryKey: ['today', householdId] });
+    } catch (e) {
+      setError(msg(e));
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const claim = async (r: RideView) => {
     setBusyId(r.id);
@@ -26,6 +48,7 @@ export function RidesScreen({ householdId }: { householdId: string }) {
     try {
       await claimRide(r.id, r.version);
       await refresh();
+      await qc.invalidateQueries({ queryKey: ['today', householdId] });
     } catch (e) {
       // A stale version here means someone else claimed first (ADR-0008).
       setError(msg(e));
@@ -91,6 +114,26 @@ export function RidesScreen({ householdId }: { householdId: string }) {
 
   return (
     <View style={styles.wrap}>
+      <View style={styles.composer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Where to? (destination)"
+          placeholderTextColor="#6b6f8c"
+          value={dest}
+          onChangeText={setDest}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Pickup (optional, defaults to Home)"
+          placeholderTextColor="#6b6f8c"
+          value={pickup}
+          onChangeText={setPickup}
+        />
+        <Pressable style={[styles.addBtn, adding && styles.busy]} disabled={adding} onPress={request}>
+          <Text style={styles.addText}>Request a ride</Text>
+        </Pressable>
+      </View>
+
       {q.isLoading ? (
         <ActivityIndicator color="#fff" style={styles.spinner} />
       ) : q.isError ? (
@@ -112,8 +155,12 @@ export function RidesScreen({ householdId }: { householdId: string }) {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
+  composer: { padding: 20, paddingBottom: 8, gap: 10 },
+  addBtn: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
+  busy: { opacity: 0.6 },
   spinner: { marginTop: 24 },
-  list: { padding: 20, gap: 10 },
+  list: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
   card: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 8 },
   cardAlert: { borderWidth: 1, borderColor: '#ff6b6b' },
   dest: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
