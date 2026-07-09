@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -29,7 +29,10 @@ export function AuthScreen() {
   const { signIn } = useAuth();
   const [member, setMember] = useState<Member | null>(null);
   const [pin, setPin] = useState('');
+  const pinRef = useRef('');
   const [busy, setBusy] = useState(false);
+  // Same staleness problem as the PIN: the closure's `busy` can lag a frame.
+  const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -42,7 +45,8 @@ export function AuthScreen() {
    * forever on a request that had already failed in 174ms.
    */
   const attempt = async (fullPin: string) => {
-    if (!member || busy) return;
+    if (!member || busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -52,24 +56,40 @@ export function AuthScreen() {
       // On success the auth provider swaps this screen out; nothing to do here.
     } catch (e) {
       setError(friendlyError(e));
-      setPin('');
+      clearPin();
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
 
+  /**
+   * The PIN is held in a ref as well as state.
+   *
+   * `press` reads the ref, not the `pin` closure: four taps landing inside one
+   * React frame would all see the same stale `pin` and overwrite each other, so a
+   * fast typist would lose digits. The ref is always current; the state exists
+   * only to redraw the dots.
+   */
   const press = (digit: string) => {
-    if (busy || pin.length >= PIN_LENGTH) return;
-    // Compute outside the updater: React can invoke a state updater twice in
-    // StrictMode, and firing a sign-in request twice is not a side effect we want.
-    const next = pin + digit;
+    if (busyRef.current || pinRef.current.length >= PIN_LENGTH) return;
+    const next = pinRef.current + digit;
+    pinRef.current = next;
     setError(null);
     setPin(next);
+    // Fire outside any state updater: React may invoke an updater twice in
+    // StrictMode, and a doubled sign-in request is not a side effect we want.
     if (next.length === PIN_LENGTH) void attempt(next);
   };
   const back = () => {
+    if (busyRef.current) return;
+    pinRef.current = pinRef.current.slice(0, -1);
     setError(null);
-    setPin((p) => p.slice(0, -1));
+    setPin(pinRef.current);
+  };
+  const clearPin = () => {
+    pinRef.current = '';
+    setPin('');
   };
 
   if (!member) {
@@ -86,7 +106,7 @@ export function AuthScreen() {
                 style={styles.person}
                 onPress={() => {
                   setMember(m);
-                  setPin('');
+                  clearPin();
                   setError(null);
                 }}
               >
@@ -109,7 +129,7 @@ export function AuthScreen() {
         <Pressable
           onPress={() => {
             setMember(null);
-            setPin('');
+            clearPin();
             setError(null);
           }}
           style={styles.backHit}
