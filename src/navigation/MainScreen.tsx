@@ -10,14 +10,15 @@ import { InventoryScreen } from '../screens/InventoryScreen';
 import { MealsTab } from '../screens/MealsTab';
 import { PollsScreen } from '../screens/PollsScreen';
 import { RidesScreen } from '../screens/RidesScreen';
-import { ScanScreen } from '../screens/ScanScreen';
 import { ShopScreen } from '../screens/ShopScreen';
 import { TasksScreen } from '../screens/TasksScreen';
 import { TodayScreen } from '../screens/TodayScreen';
 
+// Scan is not a destination — it's something you do to the inventory. It lives
+// inside the Inventory tab as a button rather than taking a permanent slot here.
 type Tab =
   | 'today' | 'events' | 'rides' | 'meals' | 'announce'
-  | 'polls' | 'shop' | 'scan' | 'inventory' | 'tasks' | 'upkeep';
+  | 'polls' | 'shop' | 'inventory' | 'tasks' | 'upkeep';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'events', label: 'Events' },
@@ -26,7 +27,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'announce', label: 'News' },
   { key: 'polls', label: 'Polls' },
   { key: 'shop', label: 'Shop' },
-  { key: 'scan', label: 'Scan' },
   { key: 'inventory', label: 'Inventory' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'upkeep', label: 'Upkeep' },
@@ -57,7 +57,6 @@ export function MainScreen(props: { householdId: string; householdName: string; 
         {tab === 'announce' && <AnnouncementsScreen householdId={props.householdId} />}
         {tab === 'polls' && <PollsScreen householdId={props.householdId} />}
         {tab === 'shop' && <ShopScreen householdId={props.householdId} />}
-        {tab === 'scan' && <ScanScreen householdId={props.householdId} />}
         {tab === 'inventory' && <InventoryScreen householdId={props.householdId} />}
         {tab === 'tasks' && <TasksScreen householdId={props.householdId} />}
         {tab === 'upkeep' && <AssetsScreen householdId={props.householdId} />}

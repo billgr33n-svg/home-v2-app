@@ -42,13 +42,21 @@ export interface InventoryView {
   lastCountedAt: string | null;
   /** "3 days ago" — how stale this count is. */
   countAge: string | null;
+  // Raw values, so an editor can prefill without a second fetch.
+  quantity: number | null;
+  unit: string | null;
+  minQuantity: number | null;
+  parQuantity: number | null;
 }
 
+// Filters are multi-select: "show me the Kitchen Fridge AND the Garage Fridge".
+// An empty set means "no constraint", which is also what "select all" produces —
+// so selecting every location and selecting none give the same result, correctly.
 export interface InventoryFilters {
   search?: string;
-  locationId?: string | null;
-  category?: string | null;
-  store?: string | null;
+  locationIds?: readonly string[];
+  categories?: readonly string[];
+  stores?: readonly string[];
   onlyRestock?: boolean;
 }
 
@@ -68,11 +76,14 @@ function daysAgo(iso: string | null, now: Date): string | null {
 // "the thing from Costco" as readily as they look for "milk".
 export function filterInventory(items: readonly InventoryView[], f: InventoryFilters): InventoryView[] {
   const q = (f.search ?? '').trim().toLowerCase();
+  const locs = f.locationIds ?? [];
+  const cats = f.categories ?? [];
+  const stores = f.stores ?? [];
   return items.filter((i) => {
     if (f.onlyRestock && !i.needsRestock) return false;
-    if (f.locationId && i.locationId !== f.locationId) return false;
-    if (f.category && i.category !== f.category) return false;
-    if (f.store && i.store !== f.store) return false;
+    if (locs.length > 0 && (i.locationId == null || !locs.includes(i.locationId))) return false;
+    if (cats.length > 0 && !cats.includes(i.category)) return false;
+    if (stores.length > 0 && (i.store == null || !stores.includes(i.store))) return false;
     if (!q) return true;
     return (
       i.name.toLowerCase().includes(q) ||
@@ -175,6 +186,10 @@ export function toInventoryView(item: RawInventoryItem, now: Date = new Date()):
     purchasedOn: item.purchasedOn,
     lastCountedAt: item.lastCountedAt,
     countAge: daysAgo(item.lastCountedAt, now),
+    quantity: item.quantity,
+    unit: item.unit,
+    minQuantity: item.minQuantity,
+    parQuantity: item.parQuantity,
   };
 }
 

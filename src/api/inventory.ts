@@ -34,6 +34,55 @@ export async function fetchInventory(householdId: string): Promise<InventoryView
   return sortInventory(raw);
 }
 
+export interface InventoryPatch {
+  name?: string;
+  brand?: string | null;
+  unit?: string | null;
+  quantity?: number | null;
+  category?: string | null;
+  locationId?: string | null;
+  store?: string | null;
+  purchasedOn?: string | null;
+  minQuantity?: number | null;
+  parQuantity?: number | null;
+}
+
+/**
+ * Edit an item. Editing details (renaming, re-filing) is NOT a count, so it
+ * deliberately does not touch last_counted_at -- only changing the quantity does.
+ */
+export async function updateInventoryItem(itemId: string, patch: InventoryPatch): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id ?? null;
+
+  const row: Record<string, unknown> = { updated_by: uid };
+  if (patch.name !== undefined) row.name = patch.name.trim();
+  if (patch.brand !== undefined) row.brand = patch.brand;
+  if (patch.unit !== undefined) row.unit = patch.unit;
+  if (patch.category !== undefined) row.category = patch.category;
+  if (patch.locationId !== undefined) row.location_id = patch.locationId;
+  if (patch.store !== undefined) row.preferred_store = patch.store;
+  if (patch.purchasedOn !== undefined) row.purchased_on = patch.purchasedOn;
+  if (patch.minQuantity !== undefined) row.min_quantity = patch.minQuantity;
+  if (patch.parQuantity !== undefined) row.par_quantity = patch.parQuantity;
+  if (patch.quantity !== undefined) {
+    row.quantity = patch.quantity;
+    row.last_counted_at = new Date().toISOString();
+  }
+
+  const { error } = await supabase.from('inventory_items').update(row).eq('id', itemId);
+  if (error) throw error;
+}
+
+/** Soft delete: the item leaves the shelf, the history stays. */
+export async function removeInventoryItem(itemId: string): Promise<void> {
+  const { error } = await supabase
+    .from('inventory_items')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', itemId);
+  if (error) throw error;
+}
+
 // Reorder point (min) and ideal level (par). Set either independently.
 export async function setStockTargets(
   itemId: string,
