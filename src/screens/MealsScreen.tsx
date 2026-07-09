@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { createMeal, respondToDinner, setMealCook, type MealView } from '../api/meals';
+import { createMeal, respondToDinner, setMealCook, signUpToCook, type MealView } from '../api/meals';
 import { dinnerResponseLabel, dinnerSummaryLabel, type MealResponse } from '../domain/meals';
+import { useHouseholdMembers } from '../hooks/useHouseholdMembers';
 import { useMeals } from '../hooks/useMeals';
 
 function msg(e: unknown): string {
@@ -24,9 +25,13 @@ const CHOICES: MealResponse[] = ['home', 'away', 'save_plate'];
 export function MealsScreen({ householdId }: { householdId: string }) {
   const qc = useQueryClient();
   const q = useMeals(householdId);
+  const membersQ = useHouseholdMembers(householdId);
+  const members = membersQ.data ?? [];
+
   const [title, setTitle] = useState('');
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = async () => {
@@ -62,11 +67,25 @@ export function MealsScreen({ householdId }: { householdId: string }) {
     }
   };
 
-  const toggleCook = async (m: MealView) => {
+  const toggleSelf = async (m: MealView) => {
     setBusyId(m.id);
     setError(null);
     try {
-      await setMealCook(m.id, !m.iAmCook);
+      await signUpToCook(m.id, !m.iAmCook);
+      await refresh();
+    } catch (e) {
+      setError(msg(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const assignTo = async (m: MealView, userId: string | null) => {
+    setBusyId(m.id);
+    setError(null);
+    try {
+      await setMealCook(m.id, userId);
+      setAssignOpen(null);
       await refresh();
     } catch (e) {
       setError(msg(e));
@@ -89,26 +108,55 @@ export function MealsScreen({ householdId }: { householdId: string }) {
         <Text style={item.cookName ? styles.cookName : styles.noCook}>
           {item.cookName ? `Cook: ${item.cookName}` : 'No cook yet'}
         </Text>
-        <Pressable
-          style={[styles.cookBtn, item.iAmCook && styles.cookBtnMine]}
-          disabled={busyId === item.id}
-          onPress={() => toggleCook(item)}
-        >
-          <Text style={[styles.cookBtnText, item.iAmCook && styles.cookBtnTextMine]}>
-            {item.iAmCook ? "You're cooking" : "I'll cook"}
-          </Text>
-        </Pressable>
+        <View style={styles.cookBtns}>
+          <Pressable
+            style={[styles.pill, item.iAmCook && styles.pillActive]}
+            disabled={busyId === item.id}
+            onPress={() => toggleSelf(item)}
+          >
+            <Text style={[styles.pillText, item.iAmCook && styles.pillTextActive]}>
+              {item.iAmCook ? "You're cooking" : "I'll cook"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.pill}
+            disabled={busyId === item.id}
+            onPress={() => setAssignOpen(assignOpen === item.id ? null : item.id)}
+          >
+            <Text style={styles.pillText}>Assign</Text>
+          </Pressable>
+        </View>
       </View>
+
+      {assignOpen === item.id && (
+        <View style={styles.chips}>
+          {members.map((mem) => (
+            <Pressable
+              key={mem.id}
+              style={[styles.pill, item.cookId === mem.id && styles.pillActive]}
+              disabled={busyId === item.id}
+              onPress={() => assignTo(item, mem.id)}
+            >
+              <Text style={[styles.pillText, item.cookId === mem.id && styles.pillTextActive]}>{mem.name}</Text>
+            </Pressable>
+          ))}
+          {item.cookId ? (
+            <Pressable style={styles.pill} disabled={busyId === item.id} onPress={() => assignTo(item, null)}>
+              <Text style={styles.clearText}>Clear cook</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      )}
 
       <View style={styles.opts}>
         {CHOICES.map((choice) => (
           <Pressable
             key={choice}
             disabled={busyId === item.id}
-            style={[styles.opt, item.myResponse === choice && styles.optActive]}
+            style={[styles.pill, item.myResponse === choice && styles.pillActive]}
             onPress={() => respond(item, choice)}
           >
-            <Text style={[styles.optText, item.myResponse === choice && styles.optTextActive]}>
+            <Text style={[styles.pillText, item.myResponse === choice && styles.pillTextActive]}>
               {dinnerResponseLabel(choice)}
             </Text>
           </Pressable>
@@ -160,6 +208,7 @@ const styles = StyleSheet.create({
   wrap: { flex: 1 },
   composer: { padding: 20, paddingBottom: 8, gap: 10 },
   composerRow: { flexDirection: 'row', gap: 10 },
+  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
   addBtn: { flex: 1, backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   addBtnAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3a3f60' },
   addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
@@ -172,18 +221,17 @@ const styles = StyleSheet.create({
   title: { color: '#ffffff', fontSize: 16, fontWeight: '600', flex: 1 },
   reqTag: { color: '#ffb86b', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   meta: { color: '#a6abcc', fontSize: 14 },
-  cookRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  cookRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  cookBtns: { flexDirection: 'row', gap: 8 },
   cookName: { color: '#c4c8e0', fontSize: 13 },
   noCook: { color: '#ffb86b', fontSize: 13 },
-  cookBtn: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 },
-  cookBtnMine: { backgroundColor: '#7c9bff', borderColor: '#7c9bff' },
-  cookBtnText: { color: '#c4c8e0', fontSize: 13, fontWeight: '600' },
-  cookBtnTextMine: { color: '#0f1220', fontWeight: '700' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  pillActive: { backgroundColor: '#7c9bff', borderColor: '#7c9bff' },
+  pillText: { color: '#c4c8e0', fontSize: 14 },
+  pillTextActive: { color: '#0f1220', fontWeight: '700' },
+  clearText: { color: '#ff9a9a', fontSize: 14 },
   opts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  opt: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  optActive: { backgroundColor: '#7c9bff', borderColor: '#7c9bff' },
-  optText: { color: '#c4c8e0', fontSize: 14 },
-  optTextActive: { color: '#0f1220', fontWeight: '700' },
   waiting: { color: '#ffb86b', fontSize: 13 },
   allin: { color: '#7c9bff', fontSize: 13 },
   empty: { color: '#8a8fb0', textAlign: 'center', marginTop: 24, fontSize: 15 },

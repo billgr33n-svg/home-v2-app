@@ -6,6 +6,7 @@ export interface MealView {
   title: string;
   plannedAt: string;
   status: string;
+  cookId: string | null;
   cookName: string | null;
   iAmCook: boolean;
   summary: DinnerSummary;
@@ -26,8 +27,7 @@ function tonightISO(now = new Date()): string {
 }
 
 // Today's and upcoming dinners, reduced to a per-meal response summary.
-// All reads are RLS-scoped to the household; meal_responses is filtered by RLS,
-// not by an explicit household clause (mirrors polls).
+// All reads are RLS-scoped to the household.
 export async function fetchMeals(householdId: string): Promise<MealView[]> {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id ?? null;
@@ -79,6 +79,7 @@ export async function fetchMeals(householdId: string): Promise<MealView[]> {
       title: m.title,
       plannedAt: m.planned_at,
       status: m.status ?? 'planned',
+      cookId: m.prep_owner_id ?? null,
       cookName: m.prep_owner_id ? nameById[m.prep_owner_id] ?? 'Someone' : null,
       iAmCook: Boolean(m.prep_owner_id) && m.prep_owner_id === uid,
       summary,
@@ -120,16 +121,16 @@ export async function createMeal(
   if (error) throw error;
 }
 
-// Sign up to cook (assign=true sets you as the meal's cook) or drop it
-// (assign=false clears the cook). Assigning someone else comes with the
-// member picker (#6).
-export async function setMealCook(mealId: string, assign: boolean): Promise<void> {
+// Assign a cook (any active household member) or clear it with null.
+export async function setMealCook(mealId: string, userId: string | null): Promise<void> {
+  const { error } = await supabase.from('meals').update({ prep_owner_id: userId }).eq('id', mealId);
+  if (error) throw error;
+}
+
+// Sign yourself up to cook (assign=true) or drop it (assign=false).
+export async function signUpToCook(mealId: string, assign: boolean): Promise<void> {
   const { data } = await supabase.auth.getUser();
   const uid = data.user?.id;
   if (!uid) throw new Error('not signed in');
-  const { error } = await supabase
-    .from('meals')
-    .update({ prep_owner_id: assign ? uid : null })
-    .eq('id', mealId);
-  if (error) throw error;
+  await setMealCook(mealId, assign ? uid : null);
 }
