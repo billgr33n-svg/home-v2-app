@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -9,10 +9,12 @@ import {
   formatAmount,
   lookupBarcode,
   MEASURE_UNITS,
-  PACKAGE_UNIT,
   STORES,
+  unitProfile,
 } from '../api/barcode';
 import { createLocation } from '../api/locations';
+import { rankSuggestions, type ItemSuggestion } from '../api/shopping';
+import { useItemSuggestions } from '../hooks/useItemSuggestions';
 import { useLocations } from '../hooks/useLocations';
 
 function msg(e: unknown): string {
@@ -49,6 +51,7 @@ const EMPTY: Draft = { barcode: '', name: '', brand: '', unit: '', looked: false
 export function ScanScreen({ householdId }: { householdId: string }) {
   const qc = useQueryClient();
   const locationsQ = useLocations(householdId);
+  const suggestionsQ = useItemSuggestions(householdId);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [typedCode, setTypedCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -77,6 +80,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
   const [parQty, setParQty] = useState('');
   const [store, setStore] = useState<string | null>(null);
   const [purchasedOn, setPurchasedOn] = useState('');
+  const [showAllUnits, setShowAllUnits] = useState(false);
 
   const num = (s: string): number | null => {
     const t = s.trim();
@@ -85,11 +89,31 @@ export function ScanScreen({ householdId }: { householdId: string }) {
     return Number.isFinite(n) && n >= 0 ? n : null;
   };
 
+  // Units follow the item: butter offers sticks, jam offers jars, wine offers bottles.
+  const profile = useMemo(() => unitProfile(draft.name, category), [draft.name, category]);
+
   const amount = (): { quantity: number; unit: string | null } => {
-    if (amountMode === 'packages') return { quantity: packages, unit: PACKAGE_UNIT };
-    if (amountMode === 'fraction') return { quantity: fraction, unit: PACKAGE_UNIT };
+    if (amountMode === 'packages') return { quantity: packages, unit: profile.container };
+    if (amountMode === 'fraction') return { quantity: fraction, unit: profile.container };
     const q = Number(measureQty.trim());
     return { quantity: Number.isFinite(q) && q >= 0 ? q : 0, unit: measureUnit };
+  };
+
+  // Autocomplete over the household's own 260-item catalog.
+  const suggestions: ItemSuggestion[] = rankSuggestions(suggestionsQ.data ?? [], draft.name, 5);
+
+  const applySuggestion = (s: ItemSuggestion) => {
+    setDraft((d) => ({
+      ...d,
+      name: s.name,
+      brand: s.brand ?? d.brand,
+      unit: s.unit ?? d.unit,
+      looked: true,
+    }));
+    if (s.category) setCategory(s.category);
+    if (s.store) setStore(s.store);
+    const p = unitProfile(s.name, s.category ?? null);
+    setMeasureUnit(p.units[0]);
   };
 
   const addLocation = async () => {
@@ -309,7 +333,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
       <View style={styles.row}>
         <TextInput
           style={[styles.input, styles.grow]}
-          placeholder="Barcode number"
+          placeholder="Barcode number (optional)"
           placeholderTextColor="#6b6f8c"
           value={typedCode}
           onChangeText={setTypedCode}
@@ -322,12 +346,35 @@ export function ScanScreen({ householdId }: { householdId: string }) {
 
       {busy ? <ActivityIndicator color="#fff" style={styles.spin} /> : null}
 
-      {draft.looked ? (
+      {
         <View style={styles.card}>
           <Text style={styles.cardHead}>
-            {draft.found ? 'Found it — check and save' : 'Not in the product database — name it yourself'}
+            {draft.looked
+              ? draft.found
+                ? 'Found it — check and save'
+                : 'Not in the product database — name it yourself'
+              : 'Type a name, or scan a barcode above'}
           </Text>
-          <TextInput style={styles.input} placeholder="Name" placeholderTextColor="#6b6f8c" value={draft.name} onChangeText={set('name')} />
+          <TextInput
+            style={styles.input}
+            placeholder="Item name"
+            placeholderTextColor="#6b6f8c"
+            value={draft.name}
+            onChangeText={(v) => setDraft((d) => ({ ...d, name: v, looked: true }))}
+          />
+          {suggestions.length > 0 ? (
+            <View style={styles.chips}>
+              {suggestions.map((s) => (
+                <Pressable key={`${s.name}|${s.store ?? ''}`} style={styles.chip} onPress={() => applySuggestion(s)}>
+                  {s.store ? <Text style={styles.chipStore}>{s.store}</Text> : null}
+                  <Text style={styles.chipTextOn}>{s.name}</Text>
+                  {s.brand || s.unit ? (
+                    <Text style={styles.chipText}>{[s.brand, s.unit].filter(Boolean).join(' · ')}</Text>
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
           <TextInput style={styles.input} placeholder="Brand" placeholderTextColor="#6b6f8c" value={draft.brand} onChangeText={set('brand')} />
           <TextInput style={styles.input} placeholder="Package size on the label (e.g. 50 oz)" placeholderTextColor="#6b6f8c" value={draft.unit} onChangeText={set('unit')} />
 
@@ -340,7 +387,11 @@ export function ScanScreen({ householdId }: { householdId: string }) {
                 onPress={() => setAmountMode(m)}
               >
                 <Text style={[styles.chipText, amountMode === m && styles.chipTextOn]}>
-                  {m === 'packages' ? 'Whole packages' : m === 'fraction' ? 'Part of a package' : 'Weight / volume'}
+                  {m === 'packages'
+                    ? `Whole ${profile.container}s`
+                    : m === 'fraction'
+                      ? `Part of a ${profile.container}`
+                      : 'Weight / volume / count'}
                 </Text>
               </Pressable>
             ))}
@@ -382,13 +433,26 @@ export function ScanScreen({ householdId }: { householdId: string }) {
                 onChangeText={setMeasureQty}
                 keyboardType="decimal-pad"
               />
+              {/* Units that suit this item first; the full list stays reachable. */}
               <View style={styles.chips}>
-                {MEASURE_UNITS.map((u) => (
+                {profile.units.map((u) => (
                   <Pressable key={u} style={[styles.chip, measureUnit === u && styles.chipOn]} onPress={() => setMeasureUnit(u)}>
                     <Text style={[styles.chipText, measureUnit === u && styles.chipTextOn]}>{u}</Text>
                   </Pressable>
                 ))}
+                <Pressable style={styles.chip} onPress={() => setShowAllUnits((v) => !v)}>
+                  <Text style={styles.chipText}>{showAllUnits ? 'Fewer' : 'Other units'}</Text>
+                </Pressable>
               </View>
+              {showAllUnits ? (
+                <View style={styles.chips}>
+                  {MEASURE_UNITS.filter((u) => !profile.units.includes(u)).map((u) => (
+                    <Pressable key={u} style={[styles.chip, measureUnit === u && styles.chipOn]} onPress={() => setMeasureUnit(u)}>
+                      <Text style={[styles.chipText, measureUnit === u && styles.chipTextOn]}>{u}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
             </>
           ) : null}
 
@@ -437,14 +501,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
             <Text style={styles.primaryText}>Add to inventory</Text>
           </Pressable>
         </View>
-      ) : null}
-
-      <Pressable
-        style={styles.manual}
-        onPress={() => setDraft({ ...EMPTY, looked: true, found: false })}
-      >
-        <Text style={styles.manualText}>No barcode — add by hand</Text>
-      </Pressable>
+      }
 
       {error ? <Text style={styles.err}>{error}</Text> : null}
 

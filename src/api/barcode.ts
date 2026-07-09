@@ -109,6 +109,61 @@ export const MEASURE_UNITS = [
 
 export const PACKAGE_UNIT = 'package';
 
+// Butter comes in sticks, jam comes in jars, wine comes in bottles. A single
+// unit list makes you scroll past 'kg' to find 'stick'. So the units on offer
+// depend on the item.
+//
+// Name beats category: "Peanut butter" is Pantry but lives in a jar, and
+// "Butter" is Dairy but comes in sticks. We check the name first, and fall back
+// to the category only when the name tells us nothing.
+interface UnitProfile {
+  /** The container noun, used for fractions: "½ jar", "⅓ box". */
+  container: string;
+  /** Units offered in the weight/volume mode, best first. */
+  units: string[];
+}
+
+const BY_NAME: Array<[RegExp, UnitProfile]> = [
+  // Check "peanut butter" / "almond butter" BEFORE plain "butter".
+  [/\b(peanut|almond|cashew|sun) butter\b/i, { container: 'jar', units: ['jar', 'oz', 'lb'] }],
+  [/\bbutter\b/i, { container: 'package', units: ['stick', 'lb', 'oz'] }],
+  [/\b(jam|jelly|preserve|honey|salsa|pesto|sauce|mayo|mustard|pickle)/i, { container: 'jar', units: ['jar', 'oz', 'fl oz'] }],
+  [/\b(cereal|crackers|cookies|pasta|rice|flour|sugar)\b/i, { container: 'box', units: ['box', 'oz', 'lb'] }],
+  [/\b(milk|juice|cream|creamer|broth)\b/i, { container: 'carton', units: ['gal', 'qt', 'fl oz', 'carton'] }],
+  [/\b(egg|eggs)\b/i, { container: 'carton', units: ['ct', 'dozen'] }],
+  [/\b(wine|prosecco|malbec|whiskey|bourbon|vodka|gin|rum|tequila|liqueur)\b/i, { container: 'bottle', units: ['bottle', 'ml', 'oz'] }],
+  [/\b(beer|soda|coke|sprite|seltzer|water|celsius)\b/i, { container: 'pack', units: ['can', 'bottle', 'pack', 'fl oz'] }],
+  [/\b(cheese|mozzarella|cheddar|parmigiano)\b/i, { container: 'package', units: ['oz', 'lb', 'slice'] }],
+  [/\b(chicken|beef|pork|salmon|bacon|sausage|turkey|ham)\b/i, { container: 'package', units: ['lb', 'oz', 'package'] }],
+  [/\b(bread|bagel|bun|roll|tortilla|baguette)\b/i, { container: 'bag', units: ['ct', 'bag', 'oz'] }],
+  [/\b(paper towel|toilet paper|napkin|plate)\b/i, { container: 'pack', units: ['roll', 'ct', 'pack'] }],
+];
+
+const BY_CATEGORY: Record<string, UnitProfile> = {
+  Produce: { container: 'bag', units: ['ct', 'lb', 'bunch', 'bag'] },
+  Dairy: { container: 'carton', units: ['oz', 'fl oz', 'qt', 'gal'] },
+  Meat: { container: 'package', units: ['lb', 'oz', 'package'] },
+  Deli: { container: 'package', units: ['lb', 'oz', 'slice'] },
+  Bakery: { container: 'bag', units: ['ct', 'oz', 'bag'] },
+  Pantry: { container: 'jar', units: ['oz', 'lb', 'jar', 'box'] },
+  Frozen: { container: 'bag', units: ['lb', 'oz', 'bag'] },
+  Snacks: { container: 'bag', units: ['oz', 'ct', 'bag'] },
+  Beverages: { container: 'pack', units: ['fl oz', 'can', 'bottle', 'pack'] },
+  Alcohol: { container: 'bottle', units: ['bottle', 'ml', 'oz'] },
+  Household: { container: 'pack', units: ['ct', 'roll', 'pack'] },
+  Health: { container: 'bottle', units: ['ct', 'bottle'] },
+};
+
+const DEFAULT_PROFILE: UnitProfile = { container: PACKAGE_UNIT, units: ['oz', 'lb', 'ct'] };
+
+export function unitProfile(name: string, category: string | null): UnitProfile {
+  for (const [re, profile] of BY_NAME) {
+    if (re.test(name)) return profile;
+  }
+  if (category && BY_CATEGORY[category]) return BY_CATEGORY[category];
+  return DEFAULT_PROFILE;
+}
+
 // "0.5 package" -> "½ package". Keeps the inventory list readable.
 export function formatAmount(quantity: number | null, unit: string | null): string {
   if (quantity == null) return unit ?? '';
