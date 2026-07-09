@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { setInventoryLevel } from '../api/inventory';
 import { addShoppingItem, rankSuggestions, setShoppingItemDone, type ItemSuggestion } from '../api/shopping';
-import { nextLevel, type InventoryView } from '../domain/inventory';
+import { buildRestockList, type InventoryView } from '../domain/inventory';
 import type { ShoppingItemView } from '../domain/shopping';
 import { useInventory } from '../hooks/useInventory';
 import { useItemSuggestions } from '../hooks/useItemSuggestions';
@@ -32,7 +31,6 @@ export function ShopScreen({ householdId }: { householdId: string }) {
     await qc.invalidateQueries({ queryKey: ['shopping', householdId] });
     await qc.invalidateQueries({ queryKey: ['itemSuggestions', householdId] });
   };
-  const refreshInv = () => qc.invalidateQueries({ queryKey: ['inventory', householdId] });
 
   // Keep matches visible even on an exact name match, so you can switch stores
   // after picking one. Brand and size differ per store, so the store is the choice.
@@ -84,14 +82,46 @@ export function ShopScreen({ householdId }: { householdId: string }) {
     }
   };
 
-  const cycle = async (item: InventoryView) => {
-    if (!item.approximate) return;
+  // What the shopping list already covers, so we don't nag twice.
+  const openNames = (shop.data?.open ?? []).map((i: ShoppingItemView) => i.name);
+  const restock = buildRestockList(inv.data ?? [], openNames);
+
+  // Buy back up to par where we know it; otherwise just put the item on the list.
+  const addFromInventory = async (item: InventoryView) => {
+    setBusy(true);
     setError(null);
     try {
-      await setInventoryLevel(item.id, nextLevel(item.level));
-      await refreshInv();
+      await addShoppingItem(householdId, item.name, {
+        brand: item.brand,
+        quantity: item.reorderQuantity,
+        unit: item.unit,
+        store: item.store,
+      });
+      await refreshShop();
     } catch (e) {
       setError(msg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addAllNeeded = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      for (const item of [...restock.out, ...restock.low]) {
+        await addShoppingItem(householdId, item.name, {
+          brand: item.brand,
+          quantity: item.reorderQuantity,
+          unit: item.unit,
+          store: item.store,
+        });
+      }
+      await refreshShop();
+    } catch (e) {
+      setError(msg(e));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -191,35 +221,80 @@ export function ShopScreen({ householdId }: { householdId: string }) {
         <Text style={styles.empty}>Shopping list is empty.</Text>
       )}
 
-      <Text style={styles.section}>Inventory</Text>
+      <Text style={styles.section}>Needs replenishing</Text>
       {inv.isLoading ? (
         <ActivityIndicator color="#fff" style={styles.spin} />
       ) : inv.isError ? (
         <Text style={styles.err}>{msg(inv.error)}</Text>
-      ) : inv.data && inv.data.length > 0 ? (
-        <View>
-          {inv.data.map((it: InventoryView) => (
-            <Pressable key={it.id} style={styles.row2} disabled={!it.approximate} onPress={() => cycle(it)}>
-              <View style={styles.rowBody}>
-                <Text style={styles.rowTitle}>{it.name}</Text>
-                <Text style={styles.rowDetail}>{it.category}{it.approximate ? ' · tap to update' : ''}</Text>
-              </View>
-              <View style={styles.levelWrap}>
-                {it.needsRestock ? <Text style={styles.restock}>RESTOCK</Text> : null}
-                <Text style={styles.level}>{it.levelLabel}</Text>
-                {it.needsRestock && it.reorderLabel ? (
-                  <Text style={styles.reorder}>{it.reorderLabel}</Text>
-                ) : null}
-              </View>
-            </Pressable>
-          ))}
-        </View>
       ) : (
-        <Text style={styles.empty}>No inventory yet.</Text>
+        <View>
+          {restock.out.length + restock.low.length + restock.onList.length === 0 ? (
+            <Text style={styles.empty}>Nothing has fallen below its target.</Text>
+          ) : null}
+
+          {restock.out.length > 0 ? <Text style={styles.subhead}>Out of stock</Text> : null}
+          {restock.out.map((it: InventoryView) => (
+            <RestockRow key={it.id} item={it} busy={busy} onAdd={() => addFromInventory(it)} />
+          ))}
+
+          {restock.low.length > 0 ? <Text style={styles.subhead}>Running low</Text> : null}
+          {restock.low.map((it: InventoryView) => (
+            <RestockRow key={it.id} item={it} busy={busy} onAdd={() => addFromInventory(it)} />
+          ))}
+
+          {restock.out.length + restock.low.length > 1 ? (
+            <Pressable style={[styles.addAll, busy && styles.busy]} disabled={busy} onPress={addAllNeeded}>
+              <Text style={styles.addAllText}>
+                Add all {restock.out.length + restock.low.length} to the list
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {restock.onList.length > 0 ? (
+            <>
+              <Text style={styles.subhead}>Already on the list</Text>
+              {restock.onList.map((it: InventoryView) => (
+                <View key={it.id} style={styles.row2}>
+                  <View style={styles.rowBody}>
+                    <Text style={[styles.rowTitle, styles.doneTitle]}>{it.name}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          ) : null}
+
+          {restock.untracked > 0 ? (
+            <Text style={styles.untracked}>
+              {restock.untracked} item{restock.untracked === 1 ? ' has' : 's have'} no reorder point, so this
+              screen can only tell when {restock.untracked === 1 ? 'it runs' : 'they run'} out entirely. Set one
+              on the Inventory tab — you can do it for many items at once with Select.
+            </Text>
+          ) : null}
+        </View>
       )}
 
       {error ? <Text style={styles.err}>{error}</Text> : null}
     </ScrollView>
+  );
+}
+
+function RestockRow(props: { item: InventoryView; busy: boolean; onAdd: () => void }) {
+  const { item } = props;
+  const detail = [item.brand, item.store].filter(Boolean).join(' · ');
+  return (
+    <View style={styles.row2}>
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle}>{item.name}</Text>
+        {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
+        <Text style={styles.rowMeta}>
+          {item.restockReason === 'out_of_stock' ? 'None left' : `${item.levelLabel} left`}
+          {item.reorderLabel ? ` · ${item.reorderLabel}` : ''}
+        </Text>
+      </View>
+      <Pressable style={[styles.addSmall, props.busy && styles.busy]} disabled={props.busy} onPress={props.onAdd}>
+        <Text style={styles.addSmallText}>Add</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -258,5 +333,11 @@ const styles = StyleSheet.create({
   restock: { color: '#ffb86b', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   reorder: { color: '#9fe0b0', fontSize: 11, marginTop: 2 },
   empty: { color: '#8a8fb0', fontSize: 15 },
+  rowMeta: { color: '#6b6f8c', fontSize: 12, marginTop: 3 },
+  addSmall: { backgroundColor: '#2a2f4a', borderRadius: 10, paddingHorizontal: 18, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  addSmallText: { color: '#e8eaf6', fontWeight: '600' },
+  addAll: { borderWidth: 1, borderColor: '#7c9bff', borderRadius: 12, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  addAllText: { color: '#7c9bff', fontWeight: '700' },
+  untracked: { color: '#6b6f8c', fontSize: 12, lineHeight: 18, marginTop: 16 },
   err: { color: '#ff9a9a', fontSize: 14, marginTop: 12 },
 });

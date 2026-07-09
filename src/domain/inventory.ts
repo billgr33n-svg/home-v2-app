@@ -36,6 +36,9 @@ export interface InventoryView {
   /** How much to buy to get back to par. Null when we can't say. */
   reorderQuantity: number | null;
   reorderLabel: string | null;
+  restockReason: RestockReason | null;
+  /** False when the item has no reorder point, so "running low" is unknowable. */
+  hasTarget: boolean;
   brand: string | null;
   store: string | null;
   locationId: string | null;
@@ -173,12 +176,38 @@ export function reorderQuantity(item: RawInventoryItem): number | null {
 }
 
 export function needsRestock(item: RawInventoryItem): boolean {
+  return restockReason(item) !== null;
+}
+
+/**
+ * WHY an item wants buying, not just whether.
+ *
+ *   out_of_stock -- there is none left. True regardless of targets.
+ *   below_target -- there is some left, but less than the reorder point.
+ *   null         -- fine, OR we simply cannot tell.
+ *
+ * An item with no reorder point can only ever be judged "out". That is a real
+ * limitation, not a bug: without a target, "how low is too low" is unanswerable.
+ * The Shop screen surfaces the count of such items rather than silently
+ * pretending they're fine.
+ */
+export type RestockReason = 'out_of_stock' | 'below_target';
+
+export function restockReason(item: RawInventoryItem): RestockReason | null {
   if (item.countMode === 'approximate') {
-    return item.approximateLevel === 'low' || item.approximateLevel === 'out';
+    if (item.approximateLevel === 'out') return 'out_of_stock';
+    if (item.approximateLevel === 'low') return 'below_target';
+    return null;
   }
-  if (item.quantity == null) return false;
-  if (item.minQuantity == null) return item.quantity <= 0;
-  return item.quantity <= item.minQuantity;
+  if (item.quantity == null) return null;
+  if (item.quantity <= 0) return 'out_of_stock';
+  if (item.minQuantity == null) return null;
+  return item.quantity <= item.minQuantity ? 'below_target' : null;
+}
+
+/** True when we have enough information to judge "running low" at all. */
+export function hasReorderTarget(item: RawInventoryItem): boolean {
+  return item.countMode === 'approximate' || item.minQuantity != null;
 }
 
 export function toInventoryView(item: RawInventoryItem, now: Date = new Date()): InventoryView {
@@ -193,6 +222,8 @@ export function toInventoryView(item: RawInventoryItem, now: Date = new Date()):
     level: item.countMode === 'approximate' ? item.approximateLevel ?? 'unknown' : null,
     reorderQuantity: reorder,
     reorderLabel: reorder != null ? `Buy ${formatQuantity(reorder, item.unit)}` : null,
+    restockReason: restockReason(item),
+    hasTarget: hasReorderTarget(item),
     brand: item.brand ?? null,
     store: item.store ?? null,
     locationId: item.locationId ?? null,
@@ -205,6 +236,47 @@ export function toInventoryView(item: RawInventoryItem, now: Date = new Date()):
     minQuantity: item.minQuantity,
     parQuantity: item.parQuantity ?? null,
   };
+}
+
+export interface RestockList {
+  /** None left. Buy these. */
+  out: InventoryView[];
+  /** Some left, but under the reorder point. */
+  low: InventoryView[];
+  /** Already sitting on the shopping list; shown as done, not as a nag. */
+  onList: InventoryView[];
+  /** Items we cannot judge because nobody set a reorder point. */
+  untracked: number;
+}
+
+/**
+ * What the Shop screen should ask you to buy.
+ *
+ * Items already on the shopping list are separated rather than repeated: the
+ * shopping list is the decision, and once it's made, restating it as a warning
+ * is noise. Matching is by name, case-insensitively, because that's the only
+ * key the two tables share.
+ */
+export function buildRestockList(
+  items: readonly InventoryView[],
+  shoppingListNames: readonly string[],
+): RestockList {
+  const already = new Set(shoppingListNames.map((n) => n.trim().toLowerCase()));
+  const out: InventoryView[] = [];
+  const low: InventoryView[] = [];
+  const onList: InventoryView[] = [];
+  let untracked = 0;
+
+  for (const i of items) {
+    if (!i.hasTarget && i.restockReason == null) untracked += 1;
+    if (i.restockReason == null) continue;
+    if (already.has(i.name.trim().toLowerCase())) onList.push(i);
+    else if (i.restockReason === 'out_of_stock') out.push(i);
+    else low.push(i);
+  }
+
+  const byName = (a: InventoryView, b: InventoryView) => a.name.localeCompare(b.name);
+  return { out: out.sort(byName), low: low.sort(byName), onList: onList.sort(byName), untracked };
 }
 
 // Items needing restock first, then alphabetical.

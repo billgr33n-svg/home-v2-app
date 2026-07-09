@@ -15,6 +15,8 @@ const view = (over: Partial<InventoryView>): InventoryView => ({
   level: null,
   reorderQuantity: null,
   reorderLabel: null,
+  restockReason: null,
+  hasTarget: false,
   brand: null,
   store: null,
   locationId: null,
