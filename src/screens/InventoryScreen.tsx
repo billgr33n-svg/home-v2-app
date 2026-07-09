@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CATEGORIES, STORES } from '../api/barcode';
 import { removeInventoryItem, updateInventoryItem } from '../api/inventory';
 import { consumeAmount, markScrapped, markSpoiled, recordCount, recordMovement } from '../api/movements';
-import { filterInventory, formatQuantity, groupBy, type InventoryView } from '../domain/inventory';
+import { filterInventory, formatQuantity, groupBy, UNFILED, type InventoryView } from '../domain/inventory';
 import { useInventory } from '../hooks/useInventory';
 import { type StorageLocation } from '../api/locations';
 import { useLocations } from '../hooks/useLocations';
@@ -37,7 +37,14 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const allLocationIds = (locationsQ.data ?? []).map((l: StorageLocation) => l.id);
+  // Unfiled leads the list, because it's the pile you're trying to empty.
+  const locationOptions: Array<[string, string]> = [
+    [UNFILED, 'Unfiled'],
+    ...(locationsQ.data ?? []).map((l: StorageLocation) => [l.id, l.name] as [string, string]),
+  ];
+  // "Select all" must include Unfiled, otherwise selecting every location hides
+  // the items that belong to none of them.
+  const allLocationIds = locationOptions.map(([id]) => id);
 
   const groups = useMemo(() => {
     const items = inv.data ?? [];
@@ -112,11 +119,26 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
         <Pressable style={[styles.chip, onlyRestock && styles.chipOn]} onPress={() => setOnlyRestock((v) => !v)}>
           <Text style={[styles.chipText, onlyRestock && styles.chipTextOn]}>Needs restock</Text>
         </Pressable>
+        <Pressable
+          style={[styles.chip, locationIds.length === 1 && locationIds[0] === UNFILED && styles.chipOn]}
+          onPress={() =>
+            setLocationIds((s) => (s.length === 1 && s[0] === UNFILED ? [] : [UNFILED]))
+          }
+        >
+          <Text
+            style={[
+              styles.chipText,
+              locationIds.length === 1 && locationIds[0] === UNFILED && styles.chipTextOn,
+            ]}
+          >
+            Unfiled only
+          </Text>
+        </Pressable>
       </View>
 
       <FilterGroup
         label="LOCATION"
-        options={(locationsQ.data ?? []).map((l: StorageLocation) => [l.id, l.name] as [string, string])}
+        options={locationOptions}
         selected={locationIds}
         onToggle={(v) => setLocationIds((s) => toggle(s, v))}
         onAll={() => setLocationIds(allLocationIds)}

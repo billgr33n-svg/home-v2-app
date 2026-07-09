@@ -52,8 +52,7 @@ export interface InventoryView {
 }
 
 // Filters are multi-select: "show me the Kitchen Fridge AND the Garage Fridge".
-// An empty set means "no constraint", which is also what "select all" produces —
-// so selecting every location and selecting none give the same result, correctly.
+// An empty set means "no constraint".
 export interface InventoryFilters {
   search?: string;
   locationIds?: readonly string[];
@@ -61,6 +60,16 @@ export interface InventoryFilters {
   stores?: readonly string[];
   onlyRestock?: boolean;
 }
+
+/**
+ * "Unfiled" is a filter over `location_id IS NULL`, NOT a location you can put
+ * things in. The distinction matters: "nobody has filed this yet" is a different
+ * fact from "this lives on the Unfiled shelf", and only the first one is a to-do.
+ *
+ * Making it a real location row would let an item be *assigned* to Unfiled,
+ * which would quietly destroy that signal.
+ */
+export const UNFILED = '__unfiled__' as const;
 
 function daysAgo(iso: string | null, now: Date): string | null {
   if (!iso) return null;
@@ -83,7 +92,10 @@ export function filterInventory(items: readonly InventoryView[], f: InventoryFil
   const stores = f.stores ?? [];
   return items.filter((i) => {
     if (f.onlyRestock && !i.needsRestock) return false;
-    if (locs.length > 0 && (i.locationId == null || !locs.includes(i.locationId))) return false;
+    if (locs.length > 0) {
+      const matches = i.locationId == null ? locs.includes(UNFILED) : locs.includes(i.locationId);
+      if (!matches) return false;
+    }
     if (cats.length > 0 && !cats.includes(i.category)) return false;
     if (stores.length > 0 && (i.store == null || !stores.includes(i.store))) return false;
     if (!q) return true;
