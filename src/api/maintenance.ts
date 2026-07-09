@@ -31,3 +31,9 @@ export async function completeMaintenance(scheduleId: string): Promise<void> {
   const { error } = await supabase.rpc('complete_maintenance', { p_schedule_id: scheduleId });
   if (error) throw error;
 }
+
+// Resolve a reported maintenance issue (the kind Today surfaces).
+export async function resolveMaintenanceIssue(issueId: string): Promise<void> {
+  const { error } = await supabase.from('maintenance_issues').update({ state: 'resolved' }).eq('id', issueId);
+  if (error) throw error;
+}

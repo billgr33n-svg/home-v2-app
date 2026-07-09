@@ -11,6 +11,7 @@ function dayBoundsISO(now = new Date()): { start: string; end: string } {
 
 // Fetches the household's Today-relevant rows and reduces them to an ordered
 // feed of exceptions and decisions. All reads are RLS-scoped to the household.
+// Versions come along so Today can complete a task race-safely (ADR-0008).
 export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> {
   const { start, end } = dayBoundsISO();
 
@@ -22,7 +23,7 @@ export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> 
       .eq('state', 'active'),
     supabase
       .from('rides')
-      .select('id,driver_id,destination_text,pickup_text,state')
+      .select('id,driver_id,destination_text,pickup_text,state,version')
       .eq('household_id', householdId)
       .in('state', ['needed', 'offered', 'assigned', 'confirmed'])
       .is('deleted_at', null),
@@ -41,7 +42,7 @@ export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> 
       .is('deleted_at', null),
     supabase
       .from('tasks')
-      .select('id,title,owner_id,state')
+      .select('id,title,owner_id,state,version')
       .eq('household_id', householdId)
       .not('state', 'in', '(completed,verified,canceled,skipped)')
       .is('deleted_at', null),
@@ -79,13 +80,16 @@ export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> 
       driverId: r.driver_id,
       destination: r.destination_text,
       pickup: r.pickup_text,
+      version: r.version,
     })),
     meals: mealRows.map((m) => ({ id: m.id, title: m.title, respondedCount: respByMeal[m.id] ?? 0 })),
     announcements: (annRes.data ?? []).map((a) => ({ id: a.id, title: a.title })),
     tasks: (tasksRes.data ?? []).map((t) => ({
       id: t.id,
       title: t.title,
+      ownerId: t.owner_id,
       ownerName: t.owner_id ? nameById[t.owner_id] ?? null : null,
+      version: t.version,
     })),
     maintenance: (maintRes.data ?? []).map((m) => ({ id: m.id, title: m.title })),
   };

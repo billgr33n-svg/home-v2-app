@@ -70,3 +70,12 @@ export async function requestRide(
   });
   if (error) throw error;
 }
+
+// Assign any household member as the driver, or clear it (back to 'needed').
+export async function assignRideDriver(rideId: string, userId: string | null): Promise<void> {
+  const patch = userId
+    ? { driver_id: userId, state: 'assigned' as const }
+    : { driver_id: null, state: 'needed' as const };
+  const { error } = await supabase.from('rides').update(patch).eq('id', rideId);
+  if (error) throw error;
+}

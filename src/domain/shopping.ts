@@ -14,6 +14,7 @@ export type ShoppingState =
 export interface RawShoppingItem {
   id: string;
   name: string;
+  brand?: string | null;
   quantity: number | null;
   unit: string | null;
   store: string | null;
@@ -35,6 +36,7 @@ export function isDone(state: ShoppingState): boolean {
 
 export function toShoppingView(item: RawShoppingItem): ShoppingItemView {
   const bits: string[] = [];
+  if (item.brand) bits.push(item.brand);
   if (item.quantity != null) bits.push(item.unit ? `${item.quantity} ${item.unit}` : String(item.quantity));
   if (item.store) bits.push(item.store);
   return {

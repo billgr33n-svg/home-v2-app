@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../auth/AuthProvider';
 import { AnnouncementsScreen } from '../screens/AnnouncementsScreen';
 import { AssetsScreen } from '../screens/AssetsScreen';
+import { EventsScreen } from '../screens/EventsScreen';
 import { MealsScreen } from '../screens/MealsScreen';
 import { PollsScreen } from '../screens/PollsScreen';
 import { RidesScreen } from '../screens/RidesScreen';
@@ -12,9 +13,10 @@ import { ShopScreen } from '../screens/ShopScreen';
 import { TasksScreen } from '../screens/TasksScreen';
 import { TodayScreen } from '../screens/TodayScreen';
 
-type Tab = 'today' | 'rides' | 'meals' | 'announce' | 'polls' | 'shop' | 'tasks' | 'upkeep';
+type Tab = 'today' | 'events' | 'rides' | 'meals' | 'announce' | 'polls' | 'shop' | 'tasks' | 'upkeep';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
+  { key: 'events', label: 'Events' },
   { key: 'rides', label: 'Rides' },
   { key: 'meals', label: 'Meals' },
   { key: 'announce', label: 'News' },
@@ -43,6 +45,7 @@ export function MainScreen(props: { householdId: string; householdName: string; 
 
       <View style={styles.body}>
         {tab === 'today' && <TodayScreen householdId={props.householdId} />}
+        {tab === 'events' && <EventsScreen householdId={props.householdId} />}
         {tab === 'rides' && <RidesScreen householdId={props.householdId} />}
         {tab === 'meals' && <MealsScreen householdId={props.householdId} />}
         {tab === 'announce' && <AnnouncementsScreen householdId={props.householdId} />}

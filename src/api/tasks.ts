@@ -51,3 +51,10 @@ export async function addTask(householdId: string, title: string, ownerId: strin
     .insert({ household_id: householdId, creator_id: uid, owner_id: ownerId, title });
   if (error) throw error;
 }
+
+// Assign a task to any active household member, or clear the owner with null.
+// Leaves state alone; the version column bumps automatically.
+export async function assignTask(taskId: string, userId: string | null): Promise<void> {
+  const { error } = await supabase.from('tasks').update({ owner_id: userId }).eq('id', taskId);
+  if (error) throw error;
+}

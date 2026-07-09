@@ -3,10 +3,11 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { useQueryClient } from '@tanstack/react-query';
 
 import { setInventoryLevel } from '../api/inventory';
-import { addShoppingItem, setShoppingItemDone } from '../api/shopping';
+import { addShoppingItem, setShoppingItemDone, type ItemSuggestion } from '../api/shopping';
 import { nextLevel, type InventoryView } from '../domain/inventory';
 import type { ShoppingItemView } from '../domain/shopping';
 import { useInventory } from '../hooks/useInventory';
+import { useItemSuggestions } from '../hooks/useItemSuggestions';
 import { useShoppingList } from '../hooks/useShopping';
 
 function msg(e: unknown): string {
@@ -17,20 +18,54 @@ export function ShopScreen({ householdId }: { householdId: string }) {
   const qc = useQueryClient();
   const shop = useShoppingList(householdId);
   const inv = useInventory(householdId);
+  const suggestionsQ = useItemSuggestions(householdId);
+
   const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
+  const [qty, setQty] = useState('');
+  const [unit, setUnit] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshShop = () => qc.invalidateQueries({ queryKey: ['shopping', householdId] });
+  const refreshShop = async () => {
+    await qc.invalidateQueries({ queryKey: ['shopping', householdId] });
+    await qc.invalidateQueries({ queryKey: ['itemSuggestions', householdId] });
+  };
   const refreshInv = () => qc.invalidateQueries({ queryKey: ['inventory', householdId] });
+
+  const typed = name.trim().toLowerCase();
+  const suggestions: ItemSuggestion[] =
+    typed.length > 0
+      ? (suggestionsQ.data ?? [])
+          .filter((s) => s.name.toLowerCase().startsWith(typed) && s.name.toLowerCase() !== typed)
+          .slice(0, 5)
+      : [];
+
+  const applySuggestion = (s: ItemSuggestion) => {
+    setName(s.name);
+    if (s.brand) setBrand(s.brand);
+    if (s.unit) setUnit(s.unit);
+  };
 
   const add = async () => {
     if (!name.trim()) return;
+    const parsedQty = qty.trim() ? Number(qty.trim()) : null;
+    if (parsedQty !== null && (Number.isNaN(parsedQty) || parsedQty < 0)) {
+      setError('Quantity must be a non-negative number.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await addShoppingItem(householdId, name.trim());
+      await addShoppingItem(householdId, name.trim(), {
+        brand: brand.trim() || null,
+        quantity: parsedQty,
+        unit: unit.trim() || null,
+      });
       setName('');
+      setBrand('');
+      setQty('');
+      setUnit('');
       await refreshShop();
     } catch (e) {
       setError(msg(e));
@@ -65,15 +100,49 @@ export function ShopScreen({ householdId }: { householdId: string }) {
       <View style={styles.composer}>
         <TextInput
           style={styles.input}
-          placeholder="Add to shopping list"
+          placeholder="Item (e.g., Milk)"
           placeholderTextColor="#6b6f8c"
           value={name}
           onChangeText={setName}
-          onSubmitEditing={add}
-          returnKeyType="done"
         />
+        {suggestions.length > 0 ? (
+          <View style={styles.chips}>
+            {suggestions.map((s) => (
+              <Pressable key={s.name} style={styles.chip} onPress={() => applySuggestion(s)}>
+                <Text style={styles.chipText}>
+                  {s.brand ? `${s.name} · ${s.brand}` : s.name}
+                  {s.unit ? ` · ${s.unit}` : ''}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.row}>
+          <TextInput
+            style={[styles.input, styles.brandField]}
+            placeholder="Brand (optional)"
+            placeholderTextColor="#6b6f8c"
+            value={brand}
+            onChangeText={setBrand}
+          />
+          <TextInput
+            style={[styles.input, styles.qtyField]}
+            placeholder="Qty"
+            placeholderTextColor="#6b6f8c"
+            value={qty}
+            onChangeText={setQty}
+            keyboardType="numeric"
+          />
+          <TextInput
+            style={[styles.input, styles.unitField]}
+            placeholder="Size/unit"
+            placeholderTextColor="#6b6f8c"
+            value={unit}
+            onChangeText={setUnit}
+          />
+        </View>
         <Pressable style={[styles.add, busy && styles.busy]} disabled={busy} onPress={add}>
-          <Text style={styles.addText}>Add</Text>
+          <Text style={styles.addText}>Add to shopping list</Text>
         </Pressable>
       </View>
 
@@ -85,7 +154,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
       ) : shop.data && shop.data.open.length + shop.data.done.length > 0 ? (
         <View>
           {shop.data.open.map((it) => (
-            <Pressable key={it.id} style={styles.row} onPress={() => toggle(it)}>
+            <Pressable key={it.id} style={styles.row2} onPress={() => toggle(it)}>
               <View style={styles.checkbox} />
               <View style={styles.rowBody}>
                 <Text style={styles.rowTitle}>{it.name}</Text>
@@ -95,7 +164,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
           ))}
           {shop.data.done.length > 0 ? <Text style={styles.subhead}>Bought</Text> : null}
           {shop.data.done.map((it) => (
-            <Pressable key={it.id} style={styles.row} onPress={() => toggle(it)}>
+            <Pressable key={it.id} style={styles.row2} onPress={() => toggle(it)}>
               <View style={[styles.checkbox, styles.checkboxDone]}>
                 <Text style={styles.check}>✓</Text>
               </View>
@@ -117,7 +186,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
       ) : inv.data && inv.data.length > 0 ? (
         <View>
           {inv.data.map((it) => (
-            <Pressable key={it.id} style={styles.row} disabled={!it.approximate} onPress={() => cycle(it)}>
+            <Pressable key={it.id} style={styles.row2} disabled={!it.approximate} onPress={() => cycle(it)}>
               <View style={styles.rowBody}>
                 <Text style={styles.rowTitle}>{it.name}</Text>
                 <Text style={styles.rowDetail}>{it.category}{it.approximate ? ' · tap to update' : ''}</Text>
@@ -140,15 +209,22 @@ export function ShopScreen({ householdId }: { householdId: string }) {
 
 const styles = StyleSheet.create({
   list: { padding: 20, paddingBottom: 32 },
-  composer: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  input: { flex: 1, backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
-  add: { backgroundColor: '#7c9bff', borderRadius: 12, paddingHorizontal: 18, justifyContent: 'center' },
+  composer: { gap: 8, marginBottom: 8 },
+  row: { flexDirection: 'row', gap: 8 },
+  brandField: { flex: 2 },
+  qtyField: { flex: 1 },
+  unitField: { flex: 1.4 },
+  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  chipText: { color: '#c4c8e0', fontSize: 13 },
+  add: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   busy: { opacity: 0.6 },
   addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
   section: { color: '#8a8fb0', fontSize: 12, letterSpacing: 1.5, marginTop: 18, marginBottom: 8 },
   subhead: { color: '#6b6f8c', fontSize: 12, marginTop: 10, marginBottom: 4 },
   spin: { marginTop: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161a2e', borderRadius: 12, padding: 12, marginBottom: 8, gap: 12 },
+  row2: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161a2e', borderRadius: 12, padding: 12, marginBottom: 8, gap: 12 },
   checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#3a3f60' },
   checkboxDone: { backgroundColor: '#7c9bff', borderColor: '#7c9bff', alignItems: 'center', justifyContent: 'center' },
   check: { color: '#0f1220', fontSize: 14, fontWeight: '700' },

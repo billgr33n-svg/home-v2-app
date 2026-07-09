@@ -3,6 +3,9 @@ import { type Priority, sortByPriority } from './priority';
 // The Today view shows exceptions and decisions, not every record
 // (PRODUCT_RULES). This module is pure: the api layer maps database rows into
 // TodayInput, and this builds the ordered feed. No I/O, no RN, no Supabase.
+//
+// Each item carries `entityId` (the underlying row id) so Today can act on it
+// directly — assign an owner, complete it, resolve it — without re-querying.
 
 export type TodayItemKind =
   | 'ride_unassigned'
@@ -14,19 +17,22 @@ export type TodayItemKind =
 
 export interface TodayItem {
   id: string;
+  entityId: string;
   kind: TodayItemKind;
   title: string;
   detail?: string;
   priority: Priority;
   needsDecision: boolean;
+  version?: number;
+  ownerId?: string | null;
 }
 
 export interface TodayInput {
   activeMemberCount: number;
-  rides: { id: string; driverId: string | null; destination: string; pickup: string | null }[];
+  rides: { id: string; driverId: string | null; destination: string; pickup: string | null; version?: number }[];
   meals: { id: string; title: string; respondedCount: number }[];
   announcements: { id: string; title: string }[];
-  tasks: { id: string; title: string; ownerName: string | null }[];
+  tasks: { id: string; title: string; ownerName: string | null; ownerId?: string | null; version?: number }[];
   maintenance: { id: string; title: string }[];
 }
 
@@ -37,11 +43,14 @@ export function buildTodayFeed(input: TodayInput): TodayItem[] {
     const unassigned = r.driverId == null;
     items.push({
       id: `ride-${r.id}`,
+      entityId: r.id,
       kind: unassigned ? 'ride_unassigned' : 'ride',
       title: unassigned ? `Ride needs a driver: ${r.destination}` : `Ride to ${r.destination}`,
       detail: r.pickup ? `From ${r.pickup}` : undefined,
       priority: unassigned ? 'P0' : 'P2',
       needsDecision: unassigned,
+      version: r.version,
+      ownerId: r.driverId,
     });
   }
 
@@ -50,6 +59,7 @@ export function buildTodayFeed(input: TodayInput): TodayItem[] {
     if (missing > 0) {
       items.push({
         id: `meal-${m.id}`,
+        entityId: m.id,
         kind: 'dinner_response_needed',
         title: `Dinner: ${m.title}`,
         detail: `${missing} response${missing === 1 ? '' : 's'} outstanding`,
@@ -60,22 +70,39 @@ export function buildTodayFeed(input: TodayInput): TodayItem[] {
   }
 
   for (const a of input.announcements) {
-    items.push({ id: `ann-${a.id}`, kind: 'announcement', title: a.title, priority: 'P2', needsDecision: false });
+    items.push({
+      id: `ann-${a.id}`,
+      entityId: a.id,
+      kind: 'announcement',
+      title: a.title,
+      priority: 'P2',
+      needsDecision: false,
+    });
   }
 
   for (const t of input.tasks) {
     items.push({
       id: `task-${t.id}`,
+      entityId: t.id,
       kind: 'task_due',
       title: t.title,
       detail: t.ownerName ? `Owner: ${t.ownerName}` : 'Unassigned',
       priority: 'P1',
       needsDecision: t.ownerName == null,
+      version: t.version,
+      ownerId: t.ownerId ?? null,
     });
   }
 
   for (const mi of input.maintenance) {
-    items.push({ id: `maint-${mi.id}`, kind: 'maintenance', title: mi.title, priority: 'P2', needsDecision: false });
+    items.push({
+      id: `maint-${mi.id}`,
+      entityId: mi.id,
+      kind: 'maintenance',
+      title: mi.title,
+      priority: 'P2',
+      needsDecision: false,
+    });
   }
 
   return sortByPriority(items);
