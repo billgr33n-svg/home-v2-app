@@ -684,6 +684,63 @@ export type Database = {
           },
         ]
       }
+      item_catalog: {
+        Row: {
+          brand: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          household_id: string
+          id: string
+          name: string
+          source: string
+          store: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          household_id: string
+          id?: string
+          name: string
+          source?: string
+          store?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          household_id?: string
+          id?: string
+          name?: string
+          source?: string
+          store?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_catalog_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_catalog_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           approximate_level:

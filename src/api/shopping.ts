@@ -5,6 +5,7 @@ export interface ItemSuggestion {
   name: string;
   brand: string | null;
   unit: string | null;
+  store: string | null;
 }
 
 export async function fetchShoppingList(householdId: string): Promise<ShoppingList> {
@@ -27,10 +28,21 @@ export async function fetchShoppingList(householdId: string): Promise<ShoppingLi
   return buildShoppingList(raw);
 }
 
-// Autocomplete source: the household's own pantry + past shopping items, so
-// brand and size get reused rather than retyped. No external product database.
+// Autocomplete source, in priority order:
+//   1. item_catalog  -- store-specific brand/size vocabulary (e.g. seeded from Instacart)
+//   2. inventory_items -- what the household actually keeps
+//   3. shopping_items  -- what they've asked for before
+//
+// Brand and size are store-specific, so the dedupe key is (name, store), not
+// name alone. Typing "milk" can therefore surface a Costco row, a Kroger row and
+// a Publix row side by side. Catalog rows win ties because they carry the store.
 export async function fetchItemSuggestions(householdId: string): Promise<ItemSuggestion[]> {
-  const [invRes, shopRes] = await Promise.all([
+  const [catRes, invRes, shopRes] = await Promise.all([
+    supabase
+      .from('item_catalog')
+      .select('name,brand,unit,store')
+      .eq('household_id', householdId)
+      .is('deleted_at', null),
     supabase
       .from('inventory_items')
       .select('name,brand,unit')
@@ -38,29 +50,45 @@ export async function fetchItemSuggestions(householdId: string): Promise<ItemSug
       .is('deleted_at', null),
     supabase
       .from('shopping_items')
-      .select('name,preferred_brand,unit')
+      .select('name,preferred_brand,unit,store')
       .eq('household_id', householdId)
       .is('deleted_at', null),
   ]);
+  if (catRes.error) throw catRes.error;
   if (invRes.error) throw invRes.error;
   if (shopRes.error) throw shopRes.error;
 
-  const byName = new Map<string, ItemSuggestion>();
+  const key = (name: string, store: string | null) => `${name.toLowerCase()}|${store ?? ''}`;
+  const byKey = new Map<string, ItemSuggestion>();
+
+  const put = (s: ItemSuggestion) => {
+    const k = key(s.name, s.store);
+    if (!byKey.has(k)) byKey.set(k, s);
+  };
+
+  for (const r of catRes.data ?? []) {
+    put({ name: r.name, brand: r.brand ?? null, unit: r.unit ?? null, store: r.store ?? null });
+  }
   for (const r of invRes.data ?? []) {
-    const key = r.name.toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: r.name, brand: r.brand ?? null, unit: r.unit ?? null });
+    put({ name: r.name, brand: r.brand ?? null, unit: r.unit ?? null, store: null });
   }
   for (const r of shopRes.data ?? []) {
-    const key = r.name.toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: r.name, brand: r.preferred_brand ?? null, unit: r.unit ?? null });
+    put({ name: r.name, brand: r.preferred_brand ?? null, unit: r.unit ?? null, store: r.store ?? null });
   }
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+  // A storeless row is redundant once the same item has store-specific rows.
+  const storedNames = new Set(
+    [...byKey.values()].filter((s) => s.store).map((s) => s.name.toLowerCase()),
+  );
+  return [...byKey.values()]
+    .filter((s) => s.store || !storedNames.has(s.name.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name) || (a.store ?? '').localeCompare(b.store ?? ''));
 }
 
 export async function addShoppingItem(
   householdId: string,
   name: string,
-  opts?: { brand?: string | null; quantity?: number | null; unit?: string | null },
+  opts?: { brand?: string | null; quantity?: number | null; unit?: string | null; store?: string | null },
 ): Promise<void> {
   const { data } = await supabase.auth.getUser();
   const uid = data.user?.id;
@@ -72,6 +100,7 @@ export async function addShoppingItem(
     preferred_brand: opts?.brand ?? null,
     quantity: opts?.quantity ?? null,
     unit: opts?.unit ?? null,
+    store: opts?.store ?? null,
   });
   if (error) throw error;
 }

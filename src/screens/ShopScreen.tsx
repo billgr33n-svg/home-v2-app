@@ -24,6 +24,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
   const [brand, setBrand] = useState('');
   const [qty, setQty] = useState('');
   const [unit, setUnit] = useState('');
+  const [store, setStore] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,18 +34,19 @@ export function ShopScreen({ householdId }: { householdId: string }) {
   };
   const refreshInv = () => qc.invalidateQueries({ queryKey: ['inventory', householdId] });
 
+  // Keep matches visible even on an exact name match, so you can switch stores
+  // after picking one. Brand and size differ per store, so the store is the choice.
   const typed = name.trim().toLowerCase();
   const suggestions: ItemSuggestion[] =
     typed.length > 0
-      ? (suggestionsQ.data ?? [])
-          .filter((s) => s.name.toLowerCase().startsWith(typed) && s.name.toLowerCase() !== typed)
-          .slice(0, 5)
+      ? (suggestionsQ.data ?? []).filter((s) => s.name.toLowerCase().startsWith(typed)).slice(0, 6)
       : [];
 
   const applySuggestion = (s: ItemSuggestion) => {
     setName(s.name);
-    if (s.brand) setBrand(s.brand);
-    if (s.unit) setUnit(s.unit);
+    setBrand(s.brand ?? '');
+    setUnit(s.unit ?? '');
+    setStore(s.store);
   };
 
   const add = async () => {
@@ -61,11 +63,13 @@ export function ShopScreen({ householdId }: { householdId: string }) {
         brand: brand.trim() || null,
         quantity: parsedQty,
         unit: unit.trim() || null,
+        store,
       });
       setName('');
       setBrand('');
       setQty('');
       setUnit('');
+      setStore(null);
       await refreshShop();
     } catch (e) {
       setError(msg(e));
@@ -107,15 +111,27 @@ export function ShopScreen({ householdId }: { householdId: string }) {
         />
         {suggestions.length > 0 ? (
           <View style={styles.chips}>
-            {suggestions.map((s) => (
-              <Pressable key={s.name} style={styles.chip} onPress={() => applySuggestion(s)}>
-                <Text style={styles.chipText}>
-                  {s.brand ? `${s.name} · ${s.brand}` : s.name}
-                  {s.unit ? ` · ${s.unit}` : ''}
-                </Text>
-              </Pressable>
-            ))}
+            {suggestions.map((s) => {
+              const active = s.store === store && s.name === name;
+              return (
+                <Pressable
+                  key={`${s.name}|${s.store ?? ''}`}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => applySuggestion(s)}
+                >
+                  {s.store ? <Text style={styles.chipStore}>{s.store}</Text> : null}
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {[s.brand, s.unit].filter(Boolean).join(' · ') || s.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
+        ) : null}
+        {store ? (
+          <Pressable onPress={() => setStore(null)}>
+            <Text style={styles.clearStore}>Buying at {store} — tap to clear</Text>
+          </Pressable>
         ) : null}
         <View style={styles.row}>
           <TextInput
@@ -216,8 +232,12 @@ const styles = StyleSheet.create({
   unitField: { flex: 1.4 },
   input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  chip: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
+  chipActive: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
+  chipStore: { color: '#7c9bff', fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 2 },
   chipText: { color: '#c4c8e0', fontSize: 13 },
+  chipTextActive: { color: '#ffffff' },
+  clearStore: { color: '#8a8fb0', fontSize: 12, marginTop: 2 },
   add: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   busy: { opacity: 0.6 },
   addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
