@@ -32,6 +32,21 @@ export function rankSuggestions(all: readonly ItemSuggestion[], typed: string, l
   return scored.slice(0, limit).map((x) => x.s);
 }
 
+// Everything the household buys from one brand. Typing "Kirkland" should list
+// the Kirkland things, not make you remember what they're called.
+export function suggestionsByBrand(
+  all: readonly ItemSuggestion[],
+  brand: string,
+  limit = 8,
+): ItemSuggestion[] {
+  const q = brand.trim().toLowerCase();
+  if (q.length < 2) return [];
+  return all
+    .filter((s) => (s.brand ?? '').toLowerCase().includes(q))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, limit);
+}
+
 export async function fetchShoppingList(householdId: string): Promise<ShoppingList> {
   const { data, error } = await supabase
     .from('shopping_items')

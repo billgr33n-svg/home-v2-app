@@ -7,7 +7,7 @@ import { AnnouncementsScreen } from '../screens/AnnouncementsScreen';
 import { AssetsScreen } from '../screens/AssetsScreen';
 import { EventsScreen } from '../screens/EventsScreen';
 import { InventoryScreen } from '../screens/InventoryScreen';
-import { MealsScreen } from '../screens/MealsScreen';
+import { MealsTab } from '../screens/MealsTab';
 import { PollsScreen } from '../screens/PollsScreen';
 import { RidesScreen } from '../screens/RidesScreen';
 import { ScanScreen } from '../screens/ScanScreen';
@@ -53,7 +53,7 @@ export function MainScreen(props: { householdId: string; householdName: string; 
         {tab === 'today' && <TodayScreen householdId={props.householdId} />}
         {tab === 'events' && <EventsScreen householdId={props.householdId} />}
         {tab === 'rides' && <RidesScreen householdId={props.householdId} />}
-        {tab === 'meals' && <MealsScreen householdId={props.householdId} />}
+        {tab === 'meals' && <MealsTab householdId={props.householdId} />}
         {tab === 'announce' && <AnnouncementsScreen householdId={props.householdId} />}
         {tab === 'polls' && <PollsScreen householdId={props.householdId} />}
         {tab === 'shop' && <ShopScreen householdId={props.householdId} />}

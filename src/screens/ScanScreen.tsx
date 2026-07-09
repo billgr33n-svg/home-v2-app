@@ -13,7 +13,7 @@ import {
   unitProfile,
 } from '../api/barcode';
 import { createLocation } from '../api/locations';
-import { rankSuggestions, type ItemSuggestion } from '../api/shopping';
+import { rankSuggestions, suggestionsByBrand, type ItemSuggestion } from '../api/shopping';
 import { useItemSuggestions } from '../hooks/useItemSuggestions';
 import { useLocations } from '../hooks/useLocations';
 
@@ -101,6 +101,8 @@ export function ScanScreen({ householdId }: { householdId: string }) {
 
   // Autocomplete over the household's own 260-item catalog.
   const suggestions: ItemSuggestion[] = rankSuggestions(suggestionsQ.data ?? [], draft.name, 5);
+  // Typing a brand lists that brand's items, so you can pick rather than recall.
+  const brandMatches: ItemSuggestion[] = suggestionsByBrand(suggestionsQ.data ?? [], draft.brand, 8);
 
   const applySuggestion = (s: ItemSuggestion) => {
     setDraft((d) => ({
@@ -375,7 +377,27 @@ export function ScanScreen({ householdId }: { householdId: string }) {
               ))}
             </View>
           ) : null}
-          <TextInput style={styles.input} placeholder="Brand" placeholderTextColor="#6b6f8c" value={draft.brand} onChangeText={set('brand')} />
+          <TextInput
+            style={styles.input}
+            placeholder="Brand (type to see everything from that brand)"
+            placeholderTextColor="#6b6f8c"
+            value={draft.brand}
+            onChangeText={set('brand')}
+          />
+          {brandMatches.length > 0 ? (
+            <>
+              <Text style={styles.subtle}>{brandMatches.length} item{brandMatches.length === 1 ? '' : 's'} from this brand</Text>
+              <View style={styles.chips}>
+                {brandMatches.map((s) => (
+                  <Pressable key={`b|${s.name}|${s.store ?? ''}`} style={styles.chip} onPress={() => applySuggestion(s)}>
+                    {s.store ? <Text style={styles.chipStore}>{s.store}</Text> : null}
+                    <Text style={styles.chipTextOn}>{s.name}</Text>
+                    {s.unit ? <Text style={styles.chipText}>{s.unit}</Text> : null}
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
           <TextInput style={styles.input} placeholder="Package size on the label (e.g. 50 oz)" placeholderTextColor="#6b6f8c" value={draft.unit} onChangeText={set('unit')} />
 
           <Text style={styles.section}>HOW MUCH IS THERE</Text>
