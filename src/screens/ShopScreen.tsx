@@ -207,6 +207,9 @@ export function ShopScreen({ householdId }: { householdId: string }) {
               <View style={styles.levelWrap}>
                 {it.needsRestock ? <Text style={styles.restock}>RESTOCK</Text> : null}
                 <Text style={styles.level}>{it.levelLabel}</Text>
+                {it.needsRestock && it.reorderLabel ? (
+                  <Text style={styles.reorder}>{it.reorderLabel}</Text>
+                ) : null}
               </View>
             </Pressable>
           ))}
@@ -253,6 +256,7 @@ const styles = StyleSheet.create({
   levelWrap: { alignItems: 'flex-end', gap: 4 },
   level: { color: '#c4c8e0', fontSize: 14 },
   restock: { color: '#ffb86b', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  reorder: { color: '#9fe0b0', fontSize: 11, marginTop: 2 },
   empty: { color: '#8a8fb0', fontSize: 15 },
   err: { color: '#ff9a9a', fontSize: 14, marginTop: 12 },
 });

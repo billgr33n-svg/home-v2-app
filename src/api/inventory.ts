@@ -4,7 +4,7 @@ import { sortInventory, type InventoryLevel, type InventoryView, type RawInvento
 export async function fetchInventory(householdId: string): Promise<InventoryView[]> {
   const { data, error } = await supabase
     .from('inventory_items')
-    .select('id,name,category,count_mode,quantity,unit,approximate_level,min_quantity')
+    .select('id,name,category,count_mode,quantity,unit,approximate_level,min_quantity,par_quantity')
     .eq('household_id', householdId)
     .is('deleted_at', null);
   if (error) throw error;
@@ -17,8 +17,22 @@ export async function fetchInventory(householdId: string): Promise<InventoryView
     unit: r.unit,
     approximateLevel: r.approximate_level,
     minQuantity: r.min_quantity,
+    parQuantity: r.par_quantity,
   }));
   return sortInventory(raw);
+}
+
+// Reorder point (min) and ideal level (par). Set either independently.
+export async function setStockTargets(
+  itemId: string,
+  targets: { minQuantity?: number | null; parQuantity?: number | null },
+): Promise<void> {
+  const patch: Record<string, number | null> = {};
+  if ('minQuantity' in targets) patch.min_quantity = targets.minQuantity ?? null;
+  if ('parQuantity' in targets) patch.par_quantity = targets.parQuantity ?? null;
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await supabase.from('inventory_items').update(patch).eq('id', itemId);
+  if (error) throw error;
 }
 
 // Approximate is the preferred posture (PRODUCT_RULES 9): setting a level marks

@@ -68,6 +68,10 @@ export interface ScannedItem {
   category?: string | null;
   locationId?: string | null;
   quantity?: number | null;
+  /** Reorder point: at or below this, the item wants restocking. */
+  minQuantity?: number | null;
+  /** Ideal level to restock back up to. */
+  parQuantity?: number | null;
 }
 
 // Categories that matter for planning. 'Alcohol' is deliberately separate from
@@ -78,6 +82,36 @@ export const CATEGORIES = [
   'Frozen', 'Snacks', 'Beverages', 'Alcohol', 'Household', 'Health',
 ] as const;
 
+// Real pantries hold partial things. "Half a box of cereal" and "a third of a jar
+// of jam" are the normal case, not an edge case, so quantity is numeric and the
+// unit is free-form rather than a fixed enum of whole packages.
+export const FRACTIONS: Array<{ label: string; value: number }> = [
+  { label: 'Empty', value: 0 },
+  { label: '¼', value: 0.25 },
+  { label: '⅓', value: 0.3333 },
+  { label: '½', value: 0.5 },
+  { label: '⅔', value: 0.6667 },
+  { label: '¾', value: 0.75 },
+  { label: 'Full', value: 1 },
+];
+
+// Weight/volume/count units, plus the package-ish units people actually say.
+export const MEASURE_UNITS = [
+  'lb', 'oz', 'g', 'kg',
+  'gal', 'qt', 'fl oz', 'L', 'ml',
+  'ct', 'stick', 'slice', 'can', 'bottle', 'box', 'jar', 'bag',
+] as const;
+
+export const PACKAGE_UNIT = 'package';
+
+// "0.5 package" -> "½ package". Keeps the inventory list readable.
+export function formatAmount(quantity: number | null, unit: string | null): string {
+  if (quantity == null) return unit ?? '';
+  const near = FRACTIONS.find((f) => f.value > 0 && f.value < 1 && Math.abs(f.value - quantity) < 0.02);
+  const q = near ? near.label : String(Math.round(quantity * 100) / 100);
+  return unit ? `${q} ${unit}` : q;
+}
+
 // Scanning the same barcode twice should bump the count, not create a duplicate row.
 export async function addScannedItem(householdId: string, item: ScannedItem): Promise<'inserted' | 'incremented'> {
   const { data: userData } = await supabase.auth.getUser();
@@ -86,7 +120,7 @@ export async function addScannedItem(householdId: string, item: ScannedItem): Pr
   if (item.barcode) {
     const { data: existing, error: findErr } = await supabase
       .from('inventory_items')
-      .select('id,quantity,count_mode')
+      .select('id,quantity,unit,count_mode')
       .eq('household_id', householdId)
       .eq('barcode', item.barcode)
       .is('deleted_at', null)
@@ -95,13 +129,23 @@ export async function addScannedItem(householdId: string, item: ScannedItem): Pr
 
     const hit = existing?.[0];
     if (hit) {
-      const next = (Number(hit.quantity) || 0) + (item.quantity ?? 1);
+      const sameUnit = !hit.unit || !item.unit || hit.unit === item.unit;
+      // Adding "½ package" to "1 lb" is nonsense. Only sum when the units agree;
+      // otherwise treat the new reading as a correction of the old one.
+      const next = sameUnit
+        ? (Number(hit.quantity) || 0) + (item.quantity ?? 1)
+        : (item.quantity ?? 1);
       const { error } = await supabase
         .from('inventory_items')
-        .update({ quantity: next, count_mode: 'exact', updated_by: uid })
+        .update({
+          quantity: next,
+          unit: item.unit ?? hit.unit ?? null,
+          count_mode: 'exact',
+          updated_by: uid,
+        })
         .eq('id', hit.id);
       if (error) throw error;
-      return 'incremented';
+      return sameUnit ? 'incremented' : 'inserted';
     }
   }
 
@@ -114,6 +158,8 @@ export async function addScannedItem(householdId: string, item: ScannedItem): Pr
     category: item.category ?? null,
     location_id: item.locationId ?? null,
     quantity: item.quantity ?? 1,
+    min_quantity: item.minQuantity ?? null,
+    par_quantity: item.parQuantity ?? null,
     count_mode: 'exact',
     updated_by: uid,
   });

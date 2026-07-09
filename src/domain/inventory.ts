@@ -14,6 +14,7 @@ export interface RawInventoryItem {
   unit: string | null;
   approximateLevel: InventoryLevel | null;
   minQuantity: number | null;
+  parQuantity: number | null;
 }
 
 export interface InventoryView {
@@ -24,6 +25,26 @@ export interface InventoryView {
   needsRestock: boolean;
   approximate: boolean;
   level: InventoryLevel | null;
+  /** How much to buy to get back to par. Null when we can't say. */
+  reorderQuantity: number | null;
+  reorderLabel: string | null;
+}
+
+// Quantities are numeric so that "half a box" is representable. Render the
+// common fractions as fractions -- "0.5 package" reads like a spreadsheet,
+// "½ package" reads like a pantry.
+const FRACTION_LABELS: Array<[number, string]> = [
+  [0.25, '¼'],
+  [0.3333, '⅓'],
+  [0.5, '½'],
+  [0.6667, '⅔'],
+  [0.75, '¾'],
+];
+
+export function formatQuantity(quantity: number, unit: string | null): string {
+  const hit = FRACTION_LABELS.find(([v]) => Math.abs(v - quantity) < 0.02);
+  const q = hit ? hit[1] : String(Math.round(quantity * 100) / 100);
+  return unit ? `${q} ${unit}` : q;
 }
 
 const LEVEL_LABEL: Record<InventoryLevel, string> = {
@@ -45,9 +66,19 @@ export function nextLevel(current: InventoryLevel | null): InventoryLevel {
 export function inventoryLevelLabel(item: RawInventoryItem): string {
   if (item.countMode === 'exact') {
     if (item.quantity == null) return 'Unknown';
-    return item.unit ? `${item.quantity} ${item.unit}` : String(item.quantity);
+    return formatQuantity(item.quantity, item.unit);
   }
   return LEVEL_LABEL[item.approximateLevel ?? 'unknown'];
+}
+
+// "Should I buy?" is min_quantity. "How much?" is par_quantity. Two questions,
+// two numbers. Without a par we can flag the item but not size the order.
+export function reorderQuantity(item: RawInventoryItem): number | null {
+  if (item.parQuantity == null) return null;
+  const have = item.countMode === 'exact' ? item.quantity ?? 0 : item.approximateLevel === 'out' ? 0 : null;
+  if (have == null) return null;
+  const gap = item.parQuantity - have;
+  return gap > 0 ? Math.round(gap * 100) / 100 : null;
 }
 
 export function needsRestock(item: RawInventoryItem): boolean {
@@ -60,6 +91,7 @@ export function needsRestock(item: RawInventoryItem): boolean {
 }
 
 export function toInventoryView(item: RawInventoryItem): InventoryView {
+  const reorder = reorderQuantity(item);
   return {
     id: item.id,
     name: item.name,
@@ -68,6 +100,8 @@ export function toInventoryView(item: RawInventoryItem): InventoryView {
     needsRestock: needsRestock(item),
     approximate: item.countMode === 'approximate',
     level: item.countMode === 'approximate' ? item.approximateLevel ?? 'unknown' : null,
+    reorderQuantity: reorder,
+    reorderLabel: reorder != null ? `Buy ${formatQuantity(reorder, item.unit)}` : null,
   };
 }
 

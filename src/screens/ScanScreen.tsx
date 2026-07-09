@@ -2,7 +2,15 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { addScannedItem, CATEGORIES, lookupBarcode } from '../api/barcode';
+import {
+  addScannedItem,
+  CATEGORIES,
+  FRACTIONS,
+  formatAmount,
+  lookupBarcode,
+  MEASURE_UNITS,
+  PACKAGE_UNIT,
+} from '../api/barcode';
 import { createLocation } from '../api/locations';
 import { useLocations } from '../hooks/useLocations';
 
@@ -54,6 +62,32 @@ export function ScanScreen({ householdId }: { householdId: string }) {
   const [category, setCategory] = useState<string | null>(null);
   const [newLocation, setNewLocation] = useState('');
   const [addingLocation, setAddingLocation] = useState(false);
+
+  // How much is there? Three ways to say it, because one size does not fit.
+  //   packages -> "2 boxes"        (whole units)
+  //   fraction -> "½ package"      (a partly-used container)
+  //   measure  -> "1.5 lb"         (an actual weight or volume)
+  const [amountMode, setAmountMode] = useState<'packages' | 'fraction' | 'measure'>('packages');
+  const [packages, setPackages] = useState(1);
+  const [fraction, setFraction] = useState(1);
+  const [measureQty, setMeasureQty] = useState('');
+  const [measureUnit, setMeasureUnit] = useState<string>('lb');
+  const [minQty, setMinQty] = useState('');
+  const [parQty, setParQty] = useState('');
+
+  const num = (s: string): number | null => {
+    const t = s.trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
+  const amount = (): { quantity: number; unit: string | null } => {
+    if (amountMode === 'packages') return { quantity: packages, unit: PACKAGE_UNIT };
+    if (amountMode === 'fraction') return { quantity: fraction, unit: PACKAGE_UNIT };
+    const q = Number(measureQty.trim());
+    return { quantity: Number.isFinite(q) && q >= 0 ? q : 0, unit: measureUnit };
+  };
 
   const addLocation = async () => {
     if (!newLocation.trim()) return;
@@ -149,21 +183,43 @@ export function ScanScreen({ householdId }: { householdId: string }) {
       setError('Give it a name before saving.');
       return;
     }
+    const { quantity, unit } = amount();
+    if (amountMode === 'measure' && !measureQty.trim()) {
+      setError('Enter how much, or switch to packages.');
+      return;
+    }
+    const minQ = num(minQty);
+    const parQ = num(parQty);
+    // The DB enforces par >= min; catch it here so the message is human.
+    if (minQ != null && parQ != null && parQ < minQ) {
+      setError('The ideal amount should be at least the reorder point.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const outcome = await addScannedItem(householdId, {
         name: draft.name.trim(),
         brand: draft.brand.trim() || null,
-        unit: draft.unit.trim() || null,
+        // The package size off the label (e.g. "50 oz") lives on the catalog row;
+        // `unit` here is how much we actually HAVE.
+        unit,
+        quantity,
+        minQuantity: minQ,
+        parQuantity: parQ,
         barcode: draft.barcode || null,
         category,
         locationId,
       });
-      setLog((l) => [`${outcome === 'incremented' ? '+1' : 'Added'} ${draft.name.trim()}`, ...l].slice(0, 12));
+      const amt = formatAmount(quantity, unit);
+      setLog((l) => [`${outcome === 'incremented' ? 'Added to' : 'Added'} ${draft.name.trim()} — ${amt}`, ...l].slice(0, 12));
       setDraft(EMPTY);
       setTypedCode('');
+      setMinQty('');
+      setParQty('');
+      setMeasureQty('');
       lastCode.current = '';
+      // Location and category stay put — you're still standing at the same shelf.
       await qc.invalidateQueries({ queryKey: ['inventory', householdId] });
     } catch (e) {
       setError(msg(e));
@@ -268,9 +324,96 @@ export function ScanScreen({ householdId }: { householdId: string }) {
           </Text>
           <TextInput style={styles.input} placeholder="Name" placeholderTextColor="#6b6f8c" value={draft.name} onChangeText={set('name')} />
           <TextInput style={styles.input} placeholder="Brand" placeholderTextColor="#6b6f8c" value={draft.brand} onChangeText={set('brand')} />
-          <TextInput style={styles.input} placeholder="Size" placeholderTextColor="#6b6f8c" value={draft.unit} onChangeText={set('unit')} />
+          <TextInput style={styles.input} placeholder="Package size on the label (e.g. 50 oz)" placeholderTextColor="#6b6f8c" value={draft.unit} onChangeText={set('unit')} />
+
+          <Text style={styles.section}>HOW MUCH IS THERE</Text>
+          <View style={styles.chips}>
+            {(['packages', 'fraction', 'measure'] as const).map((m) => (
+              <Pressable
+                key={m}
+                style={[styles.chip, amountMode === m && styles.chipOn]}
+                onPress={() => setAmountMode(m)}
+              >
+                <Text style={[styles.chipText, amountMode === m && styles.chipTextOn]}>
+                  {m === 'packages' ? 'Whole packages' : m === 'fraction' ? 'Part of a package' : 'Weight / volume'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {amountMode === 'packages' ? (
+            <View style={styles.chips}>
+              {[1, 2, 3, 4, 5, 6, 8, 12].map((n) => (
+                <Pressable key={n} style={[styles.chip, packages === n && styles.chipOn]} onPress={() => setPackages(n)}>
+                  <Text style={[styles.chipText, packages === n && styles.chipTextOn]}>{n}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {amountMode === 'fraction' ? (
+            <View style={styles.chips}>
+              {FRACTIONS.map((f) => (
+                <Pressable
+                  key={f.label}
+                  style={[styles.chip, Math.abs(fraction - f.value) < 0.001 && styles.chipOn]}
+                  onPress={() => setFraction(f.value)}
+                >
+                  <Text style={[styles.chipText, Math.abs(fraction - f.value) < 0.001 && styles.chipTextOn]}>
+                    {f.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {amountMode === 'measure' ? (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="How much (e.g. 1.5)"
+                placeholderTextColor="#6b6f8c"
+                value={measureQty}
+                onChangeText={setMeasureQty}
+                keyboardType="decimal-pad"
+              />
+              <View style={styles.chips}>
+                {MEASURE_UNITS.map((u) => (
+                  <Pressable key={u} style={[styles.chip, measureUnit === u && styles.chipOn]} onPress={() => setMeasureUnit(u)}>
+                    <Text style={[styles.chipText, measureUnit === u && styles.chipTextOn]}>{u}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          <Text style={styles.section}>REORDER (OPTIONAL)</Text>
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.input, styles.half]}
+              placeholder="Buy when below"
+              placeholderTextColor="#6b6f8c"
+              value={minQty}
+              onChangeText={setMinQty}
+              keyboardType="decimal-pad"
+            />
+            <TextInput
+              style={[styles.input, styles.half]}
+              placeholder="Ideal amount"
+              placeholderTextColor="#6b6f8c"
+              value={parQty}
+              onChangeText={setParQty}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          <Text style={styles.subtle}>
+            Below the first number it lands on the shopping list. The second is what to buy back up to.
+          </Text>
+
+          <Text style={styles.preview}>Saving: {formatAmount(amount().quantity, amount().unit)}</Text>
+
           <Pressable style={[styles.primary, busy && styles.dim]} disabled={busy} onPress={save}>
-            <Text style={styles.primaryText}>Add to fridge</Text>
+            <Text style={styles.primaryText}>Add to inventory</Text>
           </Pressable>
         </View>
       ) : null}
@@ -323,6 +466,9 @@ const styles = StyleSheet.create({
   chipOn: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
   chipText: { color: '#c4c8e0', fontSize: 13 },
   chipTextOn: { color: '#ffffff', fontWeight: '600' },
+  preview: { color: '#9fe0b0', fontSize: 13, marginTop: 2 },
+  subtle: { color: '#6b6f8c', fontSize: 12, lineHeight: 17 },
+  half: { flex: 1 },
   logBox: { marginTop: 10 },
   logLine: { color: '#9fe0b0', fontSize: 14, paddingVertical: 3 },
   err: { color: '#ff9a9a', fontSize: 14, marginTop: 8 },
