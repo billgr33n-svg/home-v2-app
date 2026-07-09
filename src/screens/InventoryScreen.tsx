@@ -3,8 +3,22 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { useQueryClient } from '@tanstack/react-query';
 
 import { CATEGORIES, STORES } from '../api/barcode';
-import { removeInventoryItem, updateInventoryItem } from '../api/inventory';
-import { consumeAmount, markScrapped, markSpoiled, recordCount, recordMovement } from '../api/movements';
+import {
+  bulkRemoveInventoryItems,
+  bulkUpdateInventoryItems,
+  removeInventoryItem,
+  updateInventoryItem,
+} from '../api/inventory';
+import {
+  bulkConsume,
+  bulkDiscardAll,
+  bulkSetAmount,
+  consumeAmount,
+  markScrapped,
+  markSpoiled,
+  recordCount,
+  recordMovement,
+} from '../api/movements';
 import { filterInventory, formatQuantity, groupBy, UNFILED, type InventoryView } from '../domain/inventory';
 import { useInventory } from '../hooks/useInventory';
 import { type StorageLocation } from '../api/locations';
@@ -36,6 +50,8 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
   const [groupKey, setGroupKey] = useState<GroupKey>('locationName');
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
 
   // Unfiled leads the list, because it's the pile you're trying to empty.
   const locationOptions: Array<[string, string]> = [
@@ -72,6 +88,16 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['inventory', householdId] });
 
+  const shown = groups.flatMap(([, items]) => items);
+  const selectedItems = shown.filter((i) => selected.includes(i.id));
+  const allShownSelected = shown.length > 0 && selectedItems.length === shown.length;
+
+  const toggleSelected = (id: string) => setSelected((s) => toggle(s, id));
+  const exitSelection = () => {
+    setSelecting(false);
+    setSelected([]);
+  };
+
   if (scanning) {
     return (
       <View style={styles.flex}>
@@ -85,9 +111,30 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
-      <Pressable style={styles.scanBtn} onPress={() => setScanning(true)}>
-        <Text style={styles.scanBtnText}>Scan or add an item</Text>
-      </Pressable>
+      <View style={styles.topRow}>
+        <Pressable style={[styles.scanBtn, styles.grow]} onPress={() => setScanning(true)}>
+          <Text style={styles.scanBtnText}>Scan or add an item</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.selectBtn, selecting && styles.selectBtnOn]}
+          onPress={() => (selecting ? exitSelection() : setSelecting(true))}
+        >
+          <Text style={[styles.selectBtnText, selecting && styles.selectBtnTextOn]}>
+            {selecting ? 'Done' : 'Select'}
+          </Text>
+        </Pressable>
+      </View>
+
+      {selecting ? (
+        <View style={styles.selBar}>
+          <Text style={styles.selCount}>
+            {selectedItems.length} of {shown.length} selected
+          </Text>
+          <Pressable onPress={() => setSelected(allShownSelected ? [] : shown.map((i) => i.id))}>
+            <Text style={styles.link}>{allShownSelected ? 'Select none' : 'Select all shown'}</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <TextInput
         style={styles.input}
@@ -161,6 +208,19 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
         onNone={() => setStores([])}
       />
 
+      {selecting && selectedItems.length > 0 ? (
+        <BulkPanel
+          householdId={householdId}
+          items={selectedItems}
+          locations={(locationsQ.data ?? []).map((l: StorageLocation) => [l.id, l.name] as [string, string])}
+          onError={setError}
+          onDone={async () => {
+            exitSelection();
+            await refresh();
+          }}
+        />
+      ) : null}
+
       <View style={styles.summary}>
         <Text style={styles.count}>
           {total} item{total === 1 ? '' : 's'}
@@ -188,8 +248,11 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
                 key={it.id}
                 item={it}
                 householdId={householdId}
-                open={openId === it.id}
-                onPress={() => setOpenId(openId === it.id ? null : it.id)}
+                selecting={selecting}
+                selected={selected.includes(it.id)}
+                onToggleSelected={() => toggleSelected(it.id)}
+                open={openId === it.id && !selecting}
+                onPress={() => (selecting ? toggleSelected(it.id) : setOpenId(openId === it.id ? null : it.id))}
                 groupKey={groupKey}
                 locations={(locationsQ.data ?? []).map((l: StorageLocation) => [l.id, l.name] as [string, string])}
                 onSaved={async () => {
@@ -203,6 +266,247 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
         ))
       )}
     </ScrollView>
+  );
+}
+
+
+/**
+ * Bulk edit. Every field is opt-in: a checked row is applied, an unchecked row
+ * is left alone. This is the whole safety story — a panel that treats an empty
+ * text box as "set to blank" will erase forty brands the first time it is used.
+ *
+ * Amount is not a field here. Changing how much you have is an event, so bulk
+ * amount changes are ledger movements (count / use / discard), computed per item.
+ */
+function BulkPanel(props: {
+  householdId: string;
+  items: InventoryView[];
+  locations: Array<[string, string]>;
+  onError: (m: string | null) => void;
+  onDone: () => void | Promise<void>;
+}) {
+  const { items, householdId } = props;
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState<null | 'spoiled' | 'scrapped' | 'remove'>(null);
+
+  // Each field: enabled + value. Enabled off => untouched.
+  const [onLocation, setOnLocation] = useState(false);
+  const [locationId, setLocationId] = useState<string | null>(null);
+  const [onCategory, setOnCategory] = useState(false);
+  const [category, setCategory] = useState<string | null>(null);
+  const [onStore, setOnStore] = useState(false);
+  const [store, setStore] = useState<string | null>(null);
+  const [onBrand, setOnBrand] = useState(false);
+  const [brand, setBrand] = useState('');
+  const [onUnit, setOnUnit] = useState(false);
+  const [unit, setUnit] = useState('');
+  const [onPurchased, setOnPurchased] = useState(false);
+  const [purchasedOn, setPurchasedOn] = useState('');
+  const [onMin, setOnMin] = useState(false);
+  const [minQ, setMinQ] = useState('');
+  const [onPar, setOnPar] = useState(false);
+  const [parQ, setParQ] = useState('');
+  const [setAmountTo, setSetAmountTo] = useState('');
+  const [useEach, setUseEach] = useState('');
+
+  const num = (v: string): number | null => {
+    const t = v.trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
+  const anyField = onLocation || onCategory || onStore || onBrand || onUnit || onPurchased || onMin || onPar;
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    props.onError(null);
+    try {
+      await fn();
+      await props.onDone();
+    } catch (e) {
+      props.onError(msg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyFields = () =>
+    run(async () => {
+      const minN = num(minQ);
+      const parN = num(parQ);
+      if (onMin && onPar && minN != null && parN != null && parN < minN) {
+        throw new Error('The ideal amount should be at least the reorder point.');
+      }
+      const ids = items.map((i) => i.id);
+      await bulkUpdateInventoryItems(ids, {
+        ...(onLocation ? { locationId } : {}),
+        ...(onCategory ? { category } : {}),
+        ...(onStore ? { store } : {}),
+        ...(onBrand ? { brand: brand.trim() || null } : {}),
+        ...(onUnit ? { unit: unit.trim() || null } : {}),
+        ...(onPurchased ? { purchasedOn: purchasedOn.trim() || null } : {}),
+        ...(onMin ? { minQuantity: minN } : {}),
+        ...(onPar ? { parQuantity: parN } : {}),
+      });
+    });
+
+  const applySetAmount = () =>
+    run(async () => {
+      const to = num(setAmountTo);
+      if (to == null) throw new Error('Enter the amount each item should have.');
+      await bulkSetAmount(householdId, items, to);
+    });
+
+  const applyUseEach = () =>
+    run(async () => {
+      const each = num(useEach);
+      if (each == null || each === 0) throw new Error('Enter how much to use from each item.');
+      await bulkConsume(householdId, items, each);
+    });
+
+  const applyDiscard = (reason: 'spoiled' | 'scrapped') =>
+    run(async () => {
+      await bulkDiscardAll(householdId, items, reason);
+      setConfirm(null);
+    });
+
+  const applyRemove = () =>
+    run(async () => {
+      await bulkRemoveInventoryItems(items.map((i) => i.id));
+      setConfirm(null);
+    });
+
+  const Toggle = ({ on, set, label }: { on: boolean; set: (v: boolean) => void; label: string }) => (
+    <Pressable style={styles.toggleRow} onPress={() => set(!on)}>
+      <View style={[styles.box, on && styles.boxOn]}>{on ? <Text style={styles.boxTick}>✓</Text> : null}</View>
+      <Text style={styles.toggleLabel}>{label}</Text>
+    </Pressable>
+  );
+
+  return (
+    <View style={styles.bulk}>
+      <Text style={styles.bulkHead}>Edit {items.length} item{items.length === 1 ? '' : 's'}</Text>
+      <Text style={styles.bulkHint}>Only the fields you tick are changed. Everything else is left alone.</Text>
+
+      <Toggle on={onLocation} set={setOnLocation} label="Move to a location" />
+      {onLocation ? (
+        <View style={styles.chips}>
+          {props.locations.map(([id, label]) => (
+            <Pressable key={id} style={[styles.chip, locationId === id && styles.chipOn]} onPress={() => setLocationId(id)}>
+              <Text style={[styles.chipText, locationId === id && styles.chipTextOn]}>{label}</Text>
+            </Pressable>
+          ))}
+          <Pressable style={[styles.chip, locationId === null && styles.chipOn]} onPress={() => setLocationId(null)}>
+            <Text style={[styles.chipText, locationId === null && styles.chipTextOn]}>Clear location</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      <Toggle on={onCategory} set={setOnCategory} label="Set food type" />
+      {onCategory ? (
+        <View style={styles.chips}>
+          {CATEGORIES.map((c) => (
+            <Pressable key={c} style={[styles.chip, category === c && styles.chipOn]} onPress={() => setCategory(c)}>
+              <Text style={[styles.chipText, category === c && styles.chipTextOn]}>{c}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      <Toggle on={onStore} set={setOnStore} label="Set store it came from" />
+      {onStore ? (
+        <View style={styles.chips}>
+          {STORES.map((st) => (
+            <Pressable key={st} style={[styles.chip, store === st && styles.chipOn]} onPress={() => setStore(st)}>
+              <Text style={[styles.chipText, store === st && styles.chipTextOn]}>{st}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      <Toggle on={onBrand} set={setOnBrand} label="Set brand" />
+      {onBrand ? (
+        <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="Brand (blank clears it)" placeholderTextColor="#6b6f8c" />
+      ) : null}
+
+      <Toggle on={onUnit} set={setOnUnit} label="Set unit" />
+      {onUnit ? (
+        <TextInput style={styles.input} value={unit} onChangeText={setUnit} placeholder="e.g. package, lb, bottle" placeholderTextColor="#6b6f8c" />
+      ) : null}
+
+      <Toggle on={onPurchased} set={setOnPurchased} label="Set purchase date" />
+      {onPurchased ? (
+        <TextInput style={styles.input} value={purchasedOn} onChangeText={setPurchasedOn} placeholder="YYYY-MM-DD (blank clears it)" placeholderTextColor="#6b6f8c" />
+      ) : null}
+
+      <Toggle on={onMin} set={setOnMin} label="Set reorder point" />
+      {onMin ? (
+        <TextInput style={styles.input} value={minQ} onChangeText={setMinQ} placeholder="Buy when below" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+      ) : null}
+
+      <Toggle on={onPar} set={setOnPar} label="Set ideal amount" />
+      {onPar ? (
+        <TextInput style={styles.input} value={parQ} onChangeText={setParQ} placeholder="Ideal amount" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+      ) : null}
+
+      <Pressable style={[styles.save, (!anyField || busy) && styles.dim]} disabled={!anyField || busy} onPress={applyFields}>
+        <Text style={styles.saveText}>Apply to {items.length}</Text>
+      </Pressable>
+
+      <Text style={styles.section}>AMOUNT</Text>
+      <Text style={styles.bulkHint}>
+        Amount changes are recorded as events, so each item gets its own delta.
+      </Text>
+      <View style={styles.row2}>
+        <TextInput style={[styles.input, styles.half]} value={setAmountTo} onChangeText={setSetAmountTo} placeholder="Set each to…" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+        <Pressable style={[styles.altBtn, busy && styles.dim]} disabled={busy} onPress={applySetAmount}>
+          <Text style={styles.altBtnText}>Count</Text>
+        </Pressable>
+      </View>
+      <View style={styles.row2}>
+        <TextInput style={[styles.input, styles.half]} value={useEach} onChangeText={setUseEach} placeholder="Use this much from each…" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+        <Pressable style={[styles.altBtn, busy && styles.dim]} disabled={busy} onPress={applyUseEach}>
+          <Text style={styles.altBtnText}>Use</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.bulkDanger}>
+        <Pressable style={styles.dangerBtn} disabled={busy} onPress={() => setConfirm('spoiled')}>
+          <Text style={styles.dangerText}>All went bad</Text>
+        </Pressable>
+        <Pressable style={styles.dangerBtn} disabled={busy} onPress={() => setConfirm('remove')}>
+          <Text style={styles.dangerText}>Remove selected</Text>
+        </Pressable>
+      </View>
+
+      {confirm ? (
+        <View style={styles.confirm}>
+          <Text style={styles.confirmText}>
+            {confirm === 'remove'
+              ? `Remove ${items.length} item${items.length === 1 ? '' : 's'} from the inventory? Their history is kept.`
+              : `Throw away everything on hand for ${items.length} item${items.length === 1 ? '' : 's'}?`}
+          </Text>
+          {confirm === 'remove' ? (
+            <Pressable style={styles.confirmYes} disabled={busy} onPress={applyRemove}>
+              <Text style={styles.confirmYesText}>Yes, remove them</Text>
+            </Pressable>
+          ) : (
+            <>
+              <Pressable style={styles.confirmYes} disabled={busy} onPress={() => applyDiscard('spoiled')}>
+                <Text style={styles.confirmYesText}>Yes, they went bad</Text>
+              </Pressable>
+              <Pressable style={styles.confirmAlt} disabled={busy} onPress={() => applyDiscard('scrapped')}>
+                <Text style={styles.confirmAltText}>Threw them out (not spoiled)</Text>
+              </Pressable>
+            </>
+          )}
+          <Pressable style={styles.confirmNo} onPress={() => setConfirm(null)}>
+            <Text style={styles.confirmNoText}>Cancel</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -246,12 +550,15 @@ function ItemRow(props: {
   open: boolean;
   groupKey: GroupKey;
   householdId: string;
+  selecting: boolean;
+  selected: boolean;
+  onToggleSelected: () => void;
   locations: Array<[string, string]>;
   onPress: () => void;
   onSaved: () => void | Promise<void>;
   onError: (m: string | null) => void;
 }) {
-  const { item, open, householdId } = props;
+  const { item, open, householdId, selecting, selected } = props;
   const [name, setName] = useState(item.name);
   const [brand, setBrand] = useState(item.brand ?? '');
   const [qty, setQty] = useState(item.quantity != null ? String(item.quantity) : '');
@@ -341,7 +648,14 @@ function ItemRow(props: {
 
   if (!open) {
     return (
-      <View style={styles.row}>
+      <View style={[styles.row, selecting && selected && styles.rowSelected]}>
+        {selecting ? (
+          <Pressable style={styles.pickHit} onPress={props.onToggleSelected}>
+            <View style={[styles.box, selected && styles.boxOn]}>
+              {selected ? <Text style={styles.boxTick}>✓</Text> : null}
+            </View>
+          </Pressable>
+        ) : null}
         <Pressable style={styles.rowBody} onPress={props.onPress}>
           <Text style={styles.rowTitle}>{item.name}</Text>
           <Text style={styles.rowDetail}>
@@ -355,6 +669,7 @@ function ItemRow(props: {
               .join(' · ')}
           </Text>
 
+          {selecting ? null : (
           <View style={styles.quickRow}>
             <Pressable style={styles.quick} disabled={busy || onHand <= 0} onPress={() => quickUse(1)}>
               <Text style={[styles.quickText, onHand <= 0 && styles.quickOff]}>− Use 1</Text>
@@ -369,6 +684,7 @@ function ItemRow(props: {
               <Text style={[styles.quickBadText, onHand <= 0 && styles.quickOff]}>Went bad</Text>
             </Pressable>
           </View>
+          )}
 
           {confirmToss ? (
             <View style={styles.confirm}>
@@ -472,6 +788,29 @@ function ItemRow(props: {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  topRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  grow: { flex: 1 },
+  selectBtn: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 12, paddingHorizontal: 18, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  selectBtnOn: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
+  selectBtnText: { color: '#c4c8e0', fontWeight: '600' },
+  selectBtnTextOn: { color: '#ffffff' },
+  selBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
+  selCount: { color: '#F2F4FA', fontSize: 14, fontWeight: '600' },
+  pickHit: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  box: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#3A4160', alignItems: 'center', justifyContent: 'center' },
+  boxOn: { backgroundColor: '#7c9bff', borderColor: '#7c9bff' },
+  boxTick: { color: '#0B0E1A', fontSize: 14, fontWeight: '700' },
+  rowSelected: { borderWidth: 1, borderColor: '#7c9bff' },
+  bulk: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, marginTop: 16, borderWidth: 1, borderColor: '#3A4160' },
+  bulkHead: { color: '#F2F4FA', fontSize: 16, fontWeight: '700' },
+  bulkHint: { color: '#8a8fb0', fontSize: 12, marginTop: 4, marginBottom: 8, lineHeight: 17 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  toggleLabel: { color: '#c4c8e0', fontSize: 14 },
+  altBtn: { backgroundColor: '#2a2f4a', borderRadius: 12, paddingHorizontal: 20, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  altBtnText: { color: '#e8eaf6', fontWeight: '600' },
+  bulkDanger: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  dangerBtn: { flex: 1, borderWidth: 1, borderColor: '#4a3350', borderRadius: 12, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  dangerText: { color: '#d99ac0', fontWeight: '600', fontSize: 13 },
   wrap: { padding: 20, paddingBottom: 40 },
   backBar: { paddingHorizontal: 20, paddingVertical: 12 },
   backText: { color: '#7c9bff', fontSize: 15 },

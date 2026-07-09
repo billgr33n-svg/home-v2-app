@@ -78,6 +78,78 @@ export function recordCount(householdId: string, itemId: string, from: number, t
   return recordMovement(householdId, itemId, delta, 'counted');
 }
 
+export interface BulkMovement {
+  itemId: string;
+  delta: number;
+  reason: MovementReason;
+  note?: string;
+}
+
+/**
+ * Many movements, one round trip. The DB trigger applies each to its item's
+ * balance, so bulk edits stay events rather than becoming overwrites.
+ * Zero-delta rows are dropped: the DB rejects them, and "nothing changed" isn't
+ * an error worth failing the whole batch over.
+ */
+export async function recordMovements(householdId: string, rows: readonly BulkMovement[]): Promise<number> {
+  const real = rows.filter((r) => r.delta !== 0);
+  if (real.length === 0) return 0;
+
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id ?? null;
+
+  const { error } = await supabase.from('inventory_movements').insert(
+    real.map((r) => ({
+      household_id: householdId,
+      item_id: r.itemId,
+      delta: r.delta,
+      reason: r.reason,
+      note: r.note ?? null,
+      created_by: uid,
+    })),
+  );
+  if (error) throw error;
+  return real.length;
+}
+
+export interface Countable {
+  id: string;
+  quantity: number | null;
+}
+
+/** Recount many items to the same absolute amount. Delta differs per item. */
+export function bulkSetAmount(householdId: string, items: readonly Countable[], to: number) {
+  return recordMovements(
+    householdId,
+    items.map((i) => ({ itemId: i.id, delta: to - (i.quantity ?? 0), reason: 'counted' as const })),
+  );
+}
+
+/** Consume the same amount from each item, never taking more than it has. */
+export function bulkConsume(householdId: string, items: readonly Countable[], amountEach: number) {
+  return recordMovements(
+    householdId,
+    items.map((i) => {
+      const have = i.quantity ?? 0;
+      const take = Math.min(Math.abs(amountEach), have);
+      return { itemId: i.id, delta: -take, reason: 'used' as const };
+    }),
+  );
+}
+
+/** Throw away everything on hand for each item, as waste or as scrap. */
+export function bulkDiscardAll(
+  householdId: string,
+  items: readonly Countable[],
+  reason: 'spoiled' | 'scrapped',
+  note?: string,
+) {
+  return recordMovements(
+    householdId,
+    items.map((i) => ({ itemId: i.id, delta: -(i.quantity ?? 0), reason, note })),
+  );
+}
+
 export async function fetchMovements(itemId: string, limit = 8): Promise<Movement[]> {
   const { data, error } = await supabase
     .from('inventory_movements')

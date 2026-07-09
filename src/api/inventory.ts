@@ -83,6 +83,50 @@ export async function updateInventoryItem(itemId: string, patch: InventoryPatch)
   if (error) throw error;
 }
 
+/**
+ * Apply the same patch to many items in one round trip.
+ *
+ * Only keys PRESENT in the patch are written. An absent key means "leave it
+ * alone" — which is why the caller must opt each field in explicitly. A bulk
+ * editor that treats an empty text box as "set to blank" will erase forty
+ * brands the first time someone taps Save.
+ */
+export async function bulkUpdateInventoryItems(itemIds: string[], patch: InventoryPatch): Promise<number> {
+  if (itemIds.length === 0) return 0;
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id ?? null;
+
+  type Patch = Database['public']['Tables']['inventory_items']['Update'];
+  const row: Patch = { updated_by: uid };
+  if (patch.name !== undefined) row.name = patch.name.trim();
+  if (patch.brand !== undefined) row.brand = patch.brand;
+  if (patch.unit !== undefined) row.unit = patch.unit;
+  if (patch.category !== undefined) row.category = patch.category;
+  if (patch.locationId !== undefined) row.location_id = patch.locationId;
+  if (patch.store !== undefined) row.preferred_store = patch.store;
+  if (patch.purchasedOn !== undefined) row.purchased_on = patch.purchasedOn;
+  if (patch.minQuantity !== undefined) row.min_quantity = patch.minQuantity;
+  if (patch.parQuantity !== undefined) row.par_quantity = patch.parQuantity;
+
+  // Nothing but updated_by => the caller enabled no fields. Don't touch anything.
+  if (Object.keys(row).length <= 1) return 0;
+
+  const { error } = await supabase.from('inventory_items').update(row).in('id', itemIds);
+  if (error) throw error;
+  return itemIds.length;
+}
+
+/** Soft-delete many items. History (and their movements) survive. */
+export async function bulkRemoveInventoryItems(itemIds: string[]): Promise<number> {
+  if (itemIds.length === 0) return 0;
+  const { error } = await supabase
+    .from('inventory_items')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', itemIds);
+  if (error) throw error;
+  return itemIds.length;
+}
+
 /** Soft delete: the item leaves the shelf, the history stays. */
 export async function removeInventoryItem(itemId: string): Promise<void> {
   const { error } = await supabase
