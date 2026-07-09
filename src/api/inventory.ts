@@ -4,21 +4,33 @@ import { sortInventory, type InventoryLevel, type InventoryView, type RawInvento
 export async function fetchInventory(householdId: string): Promise<InventoryView[]> {
   const { data, error } = await supabase
     .from('inventory_items')
-    .select('id,name,category,count_mode,quantity,unit,approximate_level,min_quantity,par_quantity')
+    .select(
+      'id,name,category,brand,count_mode,quantity,unit,approximate_level,min_quantity,par_quantity,' +
+        'preferred_store,location_id,purchased_on,last_counted_at,locations(name)',
+    )
     .eq('household_id', householdId)
     .is('deleted_at', null);
   if (error) throw error;
-  const raw: RawInventoryItem[] = (data ?? []).map((r) => ({
-    id: r.id,
-    name: r.name,
-    category: r.category,
-    countMode: r.count_mode,
-    quantity: r.quantity,
-    unit: r.unit,
-    approximateLevel: r.approximate_level,
-    minQuantity: r.min_quantity,
-    parQuantity: r.par_quantity,
-  }));
+  const raw: RawInventoryItem[] = (data ?? []).map((r) => {
+    const loc = r.locations as unknown as { name: string } | null;
+    return {
+      id: r.id,
+      name: r.name,
+      category: r.category,
+      countMode: r.count_mode,
+      quantity: r.quantity,
+      unit: r.unit,
+      approximateLevel: r.approximate_level,
+      minQuantity: r.min_quantity,
+      parQuantity: r.par_quantity,
+      brand: r.brand,
+      store: r.preferred_store,
+      locationId: r.location_id,
+      locationName: loc?.name ?? null,
+      purchasedOn: r.purchased_on,
+      lastCountedAt: r.last_counted_at,
+    };
+  });
   return sortInventory(raw);
 }
 

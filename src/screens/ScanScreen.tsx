@@ -10,6 +10,7 @@ import {
   lookupBarcode,
   MEASURE_UNITS,
   PACKAGE_UNIT,
+  STORES,
 } from '../api/barcode';
 import { createLocation } from '../api/locations';
 import { useLocations } from '../hooks/useLocations';
@@ -74,6 +75,8 @@ export function ScanScreen({ householdId }: { householdId: string }) {
   const [measureUnit, setMeasureUnit] = useState<string>('lb');
   const [minQty, setMinQty] = useState('');
   const [parQty, setParQty] = useState('');
+  const [store, setStore] = useState<string | null>(null);
+  const [purchasedOn, setPurchasedOn] = useState('');
 
   const num = (s: string): number | null => {
     const t = s.trim();
@@ -207,6 +210,8 @@ export function ScanScreen({ householdId }: { householdId: string }) {
         quantity,
         minQuantity: minQ,
         parQuantity: parQ,
+        store,
+        purchasedOn: purchasedOn.trim() || null,
         barcode: draft.barcode || null,
         category,
         locationId,
@@ -386,6 +391,22 @@ export function ScanScreen({ householdId }: { householdId: string }) {
               </View>
             </>
           ) : null}
+
+          <Text style={styles.section}>BOUGHT AT (OPTIONAL)</Text>
+          <View style={styles.chips}>
+            {STORES.map((s) => (
+              <Pressable key={s} style={[styles.chip, store === s && styles.chipOn]} onPress={() => setStore(store === s ? null : s)}>
+                <Text style={[styles.chipText, store === s && styles.chipTextOn]}>{s}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Purchased on (YYYY-MM-DD)"
+            placeholderTextColor="#6b6f8c"
+            value={purchasedOn}
+            onChangeText={setPurchasedOn}
+          />
 
           <Text style={styles.section}>REORDER (OPTIONAL)</Text>
           <View style={styles.row}>

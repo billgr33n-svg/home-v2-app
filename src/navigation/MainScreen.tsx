@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { AnnouncementsScreen } from '../screens/AnnouncementsScreen';
 import { AssetsScreen } from '../screens/AssetsScreen';
 import { EventsScreen } from '../screens/EventsScreen';
+import { InventoryScreen } from '../screens/InventoryScreen';
 import { MealsScreen } from '../screens/MealsScreen';
 import { PollsScreen } from '../screens/PollsScreen';
 import { RidesScreen } from '../screens/RidesScreen';
@@ -14,7 +15,9 @@ import { ShopScreen } from '../screens/ShopScreen';
 import { TasksScreen } from '../screens/TasksScreen';
 import { TodayScreen } from '../screens/TodayScreen';
 
-type Tab = 'today' | 'events' | 'rides' | 'meals' | 'announce' | 'polls' | 'shop' | 'scan' | 'tasks' | 'upkeep';
+type Tab =
+  | 'today' | 'events' | 'rides' | 'meals' | 'announce'
+  | 'polls' | 'shop' | 'scan' | 'inventory' | 'tasks' | 'upkeep';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'events', label: 'Events' },
@@ -24,6 +27,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'polls', label: 'Polls' },
   { key: 'shop', label: 'Shop' },
   { key: 'scan', label: 'Scan' },
+  { key: 'inventory', label: 'Inventory' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'upkeep', label: 'Upkeep' },
 ];
@@ -53,6 +57,8 @@ export function MainScreen(props: { householdId: string; householdName: string; 
         {tab === 'announce' && <AnnouncementsScreen householdId={props.householdId} />}
         {tab === 'polls' && <PollsScreen householdId={props.householdId} />}
         {tab === 'shop' && <ShopScreen householdId={props.householdId} />}
+        {tab === 'scan' && <ScanScreen householdId={props.householdId} />}
+        {tab === 'inventory' && <InventoryScreen householdId={props.householdId} />}
         {tab === 'tasks' && <TasksScreen householdId={props.householdId} />}
         {tab === 'upkeep' && <AssetsScreen householdId={props.householdId} />}
       </View>

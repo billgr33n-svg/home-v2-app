@@ -72,7 +72,12 @@ export interface ScannedItem {
   minQuantity?: number | null;
   /** Ideal level to restock back up to. */
   parQuantity?: number | null;
+  store?: string | null;
+  /** YYYY-MM-DD. */
+  purchasedOn?: string | null;
 }
+
+export const STORES = ['Costco', 'Kroger', 'Publix', 'HMart', 'Restaurant Depot'] as const;
 
 // Categories that matter for planning. 'Alcohol' is deliberately separate from
 // 'Beverages' -- you restock them differently and you may want it excluded from a
@@ -141,6 +146,8 @@ export async function addScannedItem(householdId: string, item: ScannedItem): Pr
           quantity: next,
           unit: item.unit ?? hit.unit ?? null,
           count_mode: 'exact',
+          last_counted_at: new Date().toISOString(),
+          ...(item.purchasedOn ? { purchased_on: item.purchasedOn } : {}),
           updated_by: uid,
         })
         .eq('id', hit.id);
@@ -160,6 +167,9 @@ export async function addScannedItem(householdId: string, item: ScannedItem): Pr
     quantity: item.quantity ?? 1,
     min_quantity: item.minQuantity ?? null,
     par_quantity: item.parQuantity ?? null,
+    preferred_store: item.store ?? null,
+    purchased_on: item.purchasedOn ?? null,
+    last_counted_at: new Date().toISOString(),
     count_mode: 'exact',
     updated_by: uid,
   });

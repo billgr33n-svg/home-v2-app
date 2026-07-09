@@ -15,6 +15,12 @@ export interface RawInventoryItem {
   approximateLevel: InventoryLevel | null;
   minQuantity: number | null;
   parQuantity: number | null;
+  brand: string | null;
+  store: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  purchasedOn: string | null;
+  lastCountedAt: string | null;
 }
 
 export interface InventoryView {
@@ -28,6 +34,66 @@ export interface InventoryView {
   /** How much to buy to get back to par. Null when we can't say. */
   reorderQuantity: number | null;
   reorderLabel: string | null;
+  brand: string | null;
+  store: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  purchasedOn: string | null;
+  lastCountedAt: string | null;
+  /** "3 days ago" — how stale this count is. */
+  countAge: string | null;
+}
+
+export interface InventoryFilters {
+  search?: string;
+  locationId?: string | null;
+  category?: string | null;
+  store?: string | null;
+  onlyRestock?: boolean;
+}
+
+function daysAgo(iso: string | null, now: Date): string | null {
+  if (!iso) return null;
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return null;
+  const days = Math.floor((now.getTime() - then.getTime()) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? 'a month ago' : `${months} months ago`;
+}
+
+// Search matches name, brand and store, because people look for "Kirkland" and
+// "the thing from Costco" as readily as they look for "milk".
+export function filterInventory(items: readonly InventoryView[], f: InventoryFilters): InventoryView[] {
+  const q = (f.search ?? '').trim().toLowerCase();
+  return items.filter((i) => {
+    if (f.onlyRestock && !i.needsRestock) return false;
+    if (f.locationId && i.locationId !== f.locationId) return false;
+    if (f.category && i.category !== f.category) return false;
+    if (f.store && i.store !== f.store) return false;
+    if (!q) return true;
+    return (
+      i.name.toLowerCase().includes(q) ||
+      (i.brand ?? '').toLowerCase().includes(q) ||
+      (i.store ?? '').toLowerCase().includes(q)
+    );
+  });
+}
+
+export function groupBy(items: readonly InventoryView[], key: 'locationName' | 'category'): Array<[string, InventoryView[]]> {
+  const map = new Map<string, InventoryView[]>();
+  for (const i of items) {
+    const k = (key === 'locationName' ? i.locationName : i.category) ?? 'Unfiled';
+    if (!map.has(k)) map.set(k, []);
+    (map.get(k) as InventoryView[]).push(i);
+  }
+  return [...map.entries()].sort((a, b) => {
+    if (a[0] === 'Unfiled') return 1;
+    if (b[0] === 'Unfiled') return -1;
+    return a[0].localeCompare(b[0]);
+  });
 }
 
 // Quantities are numeric so that "half a box" is representable. Render the
@@ -90,7 +156,7 @@ export function needsRestock(item: RawInventoryItem): boolean {
   return item.quantity <= item.minQuantity;
 }
 
-export function toInventoryView(item: RawInventoryItem): InventoryView {
+export function toInventoryView(item: RawInventoryItem, now: Date = new Date()): InventoryView {
   const reorder = reorderQuantity(item);
   return {
     id: item.id,
@@ -102,6 +168,13 @@ export function toInventoryView(item: RawInventoryItem): InventoryView {
     level: item.countMode === 'approximate' ? item.approximateLevel ?? 'unknown' : null,
     reorderQuantity: reorder,
     reorderLabel: reorder != null ? `Buy ${formatQuantity(reorder, item.unit)}` : null,
+    brand: item.brand,
+    store: item.store,
+    locationId: item.locationId,
+    locationName: item.locationName,
+    purchasedOn: item.purchasedOn,
+    lastCountedAt: item.lastCountedAt,
+    countAge: daysAgo(item.lastCountedAt, now),
   };
 }
 
