@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { createMeal, respondToDinner, setMealCook, signUpToCook, type MealView } from '../api/meals';
 import { dinnerResponseLabel, dinnerSummaryLabel, type MealResponse } from '../domain/meals';
+import { type HouseholdMember } from '../api/members';
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers';
 import { useMeals } from '../hooks/useMeals';
 
@@ -130,7 +131,7 @@ export function MealsScreen({ householdId }: { householdId: string }) {
 
       {assignOpen === item.id && (
         <View style={styles.chips}>
-          {members.map((mem) => (
+          {members.map((mem: HouseholdMember) => (
             <Pressable
               key={mem.id}
               style={[styles.pill, item.cookId === mem.id && styles.pillActive]}

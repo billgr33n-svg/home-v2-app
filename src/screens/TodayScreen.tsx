@@ -7,6 +7,7 @@ import { setMealCook } from '../api/meals';
 import { assignRideDriver } from '../api/rides';
 import { assignTask, completeTask } from '../api/tasks';
 import type { Priority, TodayItem, TodayItemKind } from '../domain/today';
+import { type HouseholdMember } from '../api/members';
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers';
 import { useTodayFeed } from '../hooks/useToday';
 
@@ -114,7 +115,7 @@ export function TodayScreen({ householdId }: { householdId: string }) {
                 <>
                   <Text style={styles.actionLabel}>{assignLabel}</Text>
                   <View style={styles.chips}>
-                    {members.map((m) => (
+                    {members.map((m: HouseholdMember) => (
                       <Pressable
                         key={m.id}
                         style={[styles.pill, item.ownerId === m.id && styles.pillActive]}

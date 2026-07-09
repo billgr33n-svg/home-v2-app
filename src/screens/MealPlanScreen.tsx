@@ -14,6 +14,7 @@ import {
   type Slot,
   type SlotView,
 } from '../domain/mealplan';
+import { type HouseholdMember } from '../api/members';
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers';
 
 function msg(e: unknown): string {
@@ -128,7 +129,7 @@ export function MealPlanScreen({ householdId }: { householdId: string }) {
               <Text style={styles.cook}>{s.cookLabel}</Text>
 
               <View style={styles.chips}>
-                {(membersQ.data ?? []).map((m) => {
+                {(membersQ.data ?? []).map((m: HouseholdMember) => {
                   const on = s.meal?.cookId === m.id;
                   return (
                     <Pressable

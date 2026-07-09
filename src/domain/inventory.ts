@@ -14,13 +14,15 @@ export interface RawInventoryItem {
   unit: string | null;
   approximateLevel: InventoryLevel | null;
   minQuantity: number | null;
-  parQuantity: number | null;
-  brand: string | null;
-  store: string | null;
-  locationId: string | null;
-  locationName: string | null;
-  purchasedOn: string | null;
-  lastCountedAt: string | null;
+  // Optional so that pure domain tests can build a fixture without inventing
+  // provenance they don't care about.
+  parQuantity?: number | null;
+  brand?: string | null;
+  store?: string | null;
+  locationId?: string | null;
+  locationName?: string | null;
+  purchasedOn?: string | null;
+  lastCountedAt?: string | null;
 }
 
 export interface InventoryView {
@@ -179,23 +181,23 @@ export function toInventoryView(item: RawInventoryItem, now: Date = new Date()):
     level: item.countMode === 'approximate' ? item.approximateLevel ?? 'unknown' : null,
     reorderQuantity: reorder,
     reorderLabel: reorder != null ? `Buy ${formatQuantity(reorder, item.unit)}` : null,
-    brand: item.brand,
-    store: item.store,
-    locationId: item.locationId,
-    locationName: item.locationName,
-    purchasedOn: item.purchasedOn,
-    lastCountedAt: item.lastCountedAt,
-    countAge: daysAgo(item.lastCountedAt, now),
+    brand: item.brand ?? null,
+    store: item.store ?? null,
+    locationId: item.locationId ?? null,
+    locationName: item.locationName ?? null,
+    purchasedOn: item.purchasedOn ?? null,
+    lastCountedAt: item.lastCountedAt ?? null,
+    countAge: daysAgo(item.lastCountedAt ?? null, now),
     quantity: item.quantity,
     unit: item.unit,
     minQuantity: item.minQuantity,
-    parQuantity: item.parQuantity,
+    parQuantity: item.parQuantity ?? null,
   };
 }
 
 // Items needing restock first, then alphabetical.
 export function sortInventory(items: readonly RawInventoryItem[]): InventoryView[] {
-  return items.map(toInventoryView).sort((a, b) => {
+  return items.map((i) => toInventoryView(i)).sort((a, b) => {
     if (a.needsRestock !== b.needsRestock) return a.needsRestock ? -1 : 1;
     return a.name.localeCompare(b.name);
   });

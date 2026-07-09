@@ -12,7 +12,7 @@ import {
   STORES,
   unitProfile,
 } from '../api/barcode';
-import { createLocation } from '../api/locations';
+import { createLocation, type StorageLocation } from '../api/locations';
 import { rankSuggestions, suggestionsByBrand, type ItemSuggestion } from '../api/shopping';
 import { useItemSuggestions } from '../hooks/useItemSuggestions';
 import { useLocations } from '../hooks/useLocations';
@@ -270,7 +270,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
 
       <Text style={styles.section}>WHERE</Text>
       <View style={styles.chips}>
-        {(locationsQ.data ?? []).map((l) => (
+        {(locationsQ.data ?? []).map((l: StorageLocation) => (
           <Pressable
             key={l.id}
             style={[styles.chip, locationId === l.id && styles.chipOn]}
@@ -314,7 +314,6 @@ export function ScanScreen({ householdId }: { householdId: string }) {
       {cameraSupported ? (
         scanning ? (
           <View style={styles.cameraBox}>
-            {/* @ts-expect-error react-native-web renders DOM nodes */}
             <video ref={videoRef} style={styles.video} muted playsInline />
             <Pressable style={styles.stop} onPress={stopCamera}>
               <Text style={styles.stopText}>Stop scanning</Text>
@@ -564,6 +563,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   chip: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
   chipOn: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
+  chipStore: { color: '#7c9bff', fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 2 },
   chipText: { color: '#c4c8e0', fontSize: 13 },
   chipTextOn: { color: '#ffffff', fontWeight: '600' },
   preview: { color: '#9fe0b0', fontSize: 13, marginTop: 2 },

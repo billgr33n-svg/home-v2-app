@@ -753,6 +753,47 @@ export type Database = {
           },
         ]
       }
+      inventory_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delta: number
+          household_id: string
+          id: string
+          item_id: string
+          note: string | null
+          reason: Database["public"]["Enums"]["inventory_reason"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delta: number
+          household_id: string
+          id?: string
+          item_id: string
+          note?: string | null
+          reason: Database["public"]["Enums"]["inventory_reason"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delta?: number
+          household_id?: string
+          id?: string
+          item_id?: string
+          note?: string | null
+          reason?: Database["public"]["Enums"]["inventory_reason"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           approximate_level:
@@ -767,9 +808,12 @@ export type Database = {
           household_id: string
           id: string
           location_id: string | null
+          last_counted_at: string | null
           min_quantity: number | null
           name: string
           notes: string | null
+          par_quantity: number | null
+          purchased_on: string | null
           preferred_store: string | null
           quantity: number | null
           reserved_quantity: number
@@ -790,9 +834,12 @@ export type Database = {
           household_id: string
           id?: string
           location_id?: string | null
+          last_counted_at?: string | null
           min_quantity?: number | null
           name: string
           notes?: string | null
+          par_quantity?: number | null
+          purchased_on?: string | null
           preferred_store?: string | null
           quantity?: number | null
           reserved_quantity?: number
@@ -813,9 +860,12 @@ export type Database = {
           household_id?: string
           id?: string
           location_id?: string | null
+          last_counted_at?: string | null
           min_quantity?: number | null
           name?: string
           notes?: string | null
+          par_quantity?: number | null
+          purchased_on?: string | null
           preferred_store?: string | null
           quantity?: number | null
           reserved_quantity?: number
@@ -824,6 +874,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_items_household_id_fkey"
             columns: ["household_id"]
@@ -2127,6 +2184,13 @@ export type Database = {
       }
     }
     Enums: {
+      inventory_reason:
+        | "purchased"
+        | "counted"
+        | "used"
+        | "spoiled"
+        | "scrapped"
+        | "adjusted"
       announcement_state:
         | "draft"
         | "scheduled"

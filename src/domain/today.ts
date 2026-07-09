@@ -1,5 +1,8 @@
 import { type Priority, sortByPriority } from './priority';
 
+// Re-exported so screens can type their priority maps without reaching past today.
+export type { Priority };
+
 // The Today view shows exceptions and decisions, not every record
 // (PRODUCT_RULES). This module is pure: the api layer maps database rows into
 // TodayInput, and this builds the ordered feed. No I/O, no RN, no Supabase.

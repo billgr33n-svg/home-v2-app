@@ -4,8 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { CATEGORIES, STORES } from '../api/barcode';
 import { removeInventoryItem, updateInventoryItem } from '../api/inventory';
-import { filterInventory, groupBy, type InventoryView } from '../domain/inventory';
+import { consumeAmount, markScrapped, markSpoiled, recordCount, recordMovement } from '../api/movements';
+import { filterInventory, formatQuantity, groupBy, type InventoryView } from '../domain/inventory';
 import { useInventory } from '../hooks/useInventory';
+import { type StorageLocation } from '../api/locations';
 import { useLocations } from '../hooks/useLocations';
 import { ScanScreen } from './ScanScreen';
 
@@ -35,7 +37,7 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const allLocationIds = (locationsQ.data ?? []).map((l) => l.id);
+  const allLocationIds = (locationsQ.data ?? []).map((l: StorageLocation) => l.id);
 
   const groups = useMemo(() => {
     const items = inv.data ?? [];
@@ -114,7 +116,7 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
 
       <FilterGroup
         label="LOCATION"
-        options={(locationsQ.data ?? []).map((l) => [l.id, l.name] as [string, string])}
+        options={(locationsQ.data ?? []).map((l: StorageLocation) => [l.id, l.name] as [string, string])}
         selected={locationIds}
         onToggle={(v) => setLocationIds((s) => toggle(s, v))}
         onAll={() => setLocationIds(allLocationIds)}
@@ -163,10 +165,11 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
               <ItemRow
                 key={it.id}
                 item={it}
+                householdId={householdId}
                 open={openId === it.id}
                 onPress={() => setOpenId(openId === it.id ? null : it.id)}
                 groupKey={groupKey}
-                locations={(locationsQ.data ?? []).map((l) => [l.id, l.name] as [string, string])}
+                locations={(locationsQ.data ?? []).map((l: StorageLocation) => [l.id, l.name] as [string, string])}
                 onSaved={async () => {
                   setOpenId(null);
                   await refresh();
@@ -220,12 +223,13 @@ function ItemRow(props: {
   item: InventoryView;
   open: boolean;
   groupKey: GroupKey;
+  householdId: string;
   locations: Array<[string, string]>;
   onPress: () => void;
   onSaved: () => void | Promise<void>;
   onError: (m: string | null) => void;
 }) {
-  const { item, open } = props;
+  const { item, open, householdId } = props;
   const [name, setName] = useState(item.name);
   const [brand, setBrand] = useState(item.brand ?? '');
   const [qty, setQty] = useState(item.quantity != null ? String(item.quantity) : '');
@@ -237,6 +241,7 @@ function ItemRow(props: {
   const [minQ, setMinQ] = useState(item.minQuantity != null ? String(item.minQuantity) : '');
   const [parQ, setParQ] = useState(item.parQuantity != null ? String(item.parQuantity) : '');
   const [busy, setBusy] = useState(false);
+  const [confirmToss, setConfirmToss] = useState<null | 'spoiled' | 'scrapped'>(null);
 
   const num = (s: string): number | null => {
     const t = s.trim();
@@ -245,21 +250,57 @@ function ItemRow(props: {
     return Number.isFinite(n) && n >= 0 ? n : null;
   };
 
-  const save = async () => {
-    const minN = num(minQ);
-    const parN = num(parQ);
-    if (minN != null && parN != null && parN < minN) {
-      props.onError('The ideal amount should be at least the reorder point.');
-      return;
-    }
+  const onHand = item.quantity ?? 0;
+
+  // Has anything actually changed? A Save button that is always enabled teaches
+  // you to ignore it.
+  const dirty =
+    name !== item.name ||
+    brand !== (item.brand ?? '') ||
+    unit !== (item.unit ?? '') ||
+    store !== item.store ||
+    locationId !== item.locationId ||
+    category !== (item.category === 'Other' ? null : item.category) ||
+    purchasedOn !== (item.purchasedOn ?? '') ||
+    minQ !== (item.minQuantity != null ? String(item.minQuantity) : '') ||
+    parQ !== (item.parQuantity != null ? String(item.parQuantity) : '') ||
+    num(qty) !== item.quantity;
+
+  const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     props.onError(null);
     try {
+      await fn();
+      await props.onSaved();
+    } catch (e) {
+      props.onError(msg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Quick actions on the collapsed row: the things you do twenty times a week.
+  const quickUse = (amount: number) => run(() => consumeAmount(householdId, item.id, amount));
+  const quickAdd = (amount: number) => run(() => recordMovement(householdId, item.id, amount, 'purchased'));
+  const tossAll = (reason: 'spoiled' | 'scrapped') =>
+    run(async () => {
+      if (onHand <= 0) throw new Error('There is none left to throw away.');
+      const fn = reason === 'spoiled' ? markSpoiled : markScrapped;
+      await fn(householdId, item.id, onHand);
+      setConfirmToss(null);
+    });
+
+  const save = () =>
+    run(async () => {
+      const minN = num(minQ);
+      const parN = num(parQ);
+      if (minN != null && parN != null && parN < minN) {
+        throw new Error('The ideal amount should be at least the reorder point.');
+      }
       await updateInventoryItem(item.id, {
         name,
         brand: brand.trim() || null,
         unit: unit.trim() || null,
-        quantity: num(qty),
         category,
         locationId,
         store,
@@ -267,30 +308,19 @@ function ItemRow(props: {
         minQuantity: minN,
         parQuantity: parN,
       });
-      await props.onSaved();
-    } catch (e) {
-      props.onError(msg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+      // Quantity is a ledger balance, not a field. Changing it records a count.
+      const target = num(qty);
+      if (target != null && target !== item.quantity) {
+        await recordCount(householdId, item.id, item.quantity ?? 0, target);
+      }
+    });
 
-  const remove = async () => {
-    setBusy(true);
-    try {
-      await removeInventoryItem(item.id);
-      await props.onSaved();
-    } catch (e) {
-      props.onError(msg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const remove = () => run(() => removeInventoryItem(item.id));
 
   if (!open) {
     return (
-      <Pressable style={styles.row} onPress={props.onPress}>
-        <View style={styles.rowBody}>
+      <View style={styles.row}>
+        <Pressable style={styles.rowBody} onPress={props.onPress}>
           <Text style={styles.rowTitle}>{item.name}</Text>
           <Text style={styles.rowDetail}>
             {[item.brand, item.store, props.groupKey === 'locationName' ? item.category : item.locationName]
@@ -302,25 +332,72 @@ function ItemRow(props: {
               .filter(Boolean)
               .join(' · ')}
           </Text>
-        </View>
-        <View style={styles.levelWrap}>
+
+          <View style={styles.quickRow}>
+            <Pressable style={styles.quick} disabled={busy || onHand <= 0} onPress={() => quickUse(1)}>
+              <Text style={[styles.quickText, onHand <= 0 && styles.quickOff]}>− Use 1</Text>
+            </Pressable>
+            <Pressable style={styles.quick} disabled={busy} onPress={() => quickAdd(1)}>
+              <Text style={styles.quickText}>+ Add 1</Text>
+            </Pressable>
+            <Pressable style={styles.quick} disabled={busy || onHand <= 0} onPress={() => quickUse(onHand)}>
+              <Text style={[styles.quickText, onHand <= 0 && styles.quickOff]}>Used it all</Text>
+            </Pressable>
+            <Pressable style={styles.quickBad} disabled={busy || onHand <= 0} onPress={() => setConfirmToss('spoiled')}>
+              <Text style={[styles.quickBadText, onHand <= 0 && styles.quickOff]}>Went bad</Text>
+            </Pressable>
+          </View>
+
+          {confirmToss ? (
+            <View style={styles.confirm}>
+              <Text style={styles.confirmText}>
+                Throw away all {formatQuantity(onHand, item.unit)}?
+              </Text>
+              <Pressable style={styles.confirmYes} disabled={busy} onPress={() => tossAll('spoiled')}>
+                <Text style={styles.confirmYesText}>Yes, it went bad</Text>
+              </Pressable>
+              <Pressable style={styles.confirmAlt} disabled={busy} onPress={() => tossAll('scrapped')}>
+                <Text style={styles.confirmAltText}>Threw it out (not spoiled)</Text>
+              </Pressable>
+              <Pressable style={styles.confirmNo} onPress={() => setConfirmToss(null)}>
+                <Text style={styles.confirmNoText}>Cancel</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </Pressable>
+
+        <Pressable style={styles.levelWrap} onPress={props.onPress}>
           {item.needsRestock ? <Text style={styles.restock}>RESTOCK</Text> : null}
           <Text style={styles.level}>{item.levelLabel}</Text>
           {item.needsRestock && item.reorderLabel ? <Text style={styles.reorder}>{item.reorderLabel}</Text> : null}
-          <Text style={styles.editHint}>tap to edit</Text>
-        </View>
-      </Pressable>
+          <Text style={styles.editHint}>edit</Text>
+        </Pressable>
+      </View>
     );
   }
 
   return (
     <View style={styles.editor}>
+      {/* Save sits at the TOP as well as the bottom: on a phone, three chip
+          groups push a bottom-only button below the fold and it looks like
+          there's no way to save. */}
+      <View style={styles.saveBar}>
+        <Text style={styles.editorTitle} numberOfLines={1}>{item.name}</Text>
+        <Pressable style={[styles.save, (!dirty || busy) && styles.dim]} disabled={!dirty || busy} onPress={save}>
+          <Text style={styles.saveText}>{dirty ? 'Save' : 'Saved'}</Text>
+        </Pressable>
+        <Pressable style={styles.cancel} disabled={busy} onPress={props.onPress}>
+          <Text style={styles.cancelText}>Close</Text>
+        </Pressable>
+      </View>
+
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor="#6b6f8c" />
       <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="Brand" placeholderTextColor="#6b6f8c" />
       <View style={styles.row2}>
         <TextInput style={[styles.input, styles.half]} value={qty} onChangeText={setQty} placeholder="How much" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
         <TextInput style={[styles.input, styles.half]} value={unit} onChangeText={setUnit} placeholder="Unit" placeholderTextColor="#6b6f8c" />
       </View>
+      <Text style={styles.note}>Changing the amount records a count. Use the quick actions to log what was used or thrown away.</Text>
 
       <Text style={styles.section}>WHERE IT LIVES</Text>
       <View style={styles.chips}>
@@ -357,17 +434,16 @@ function ItemRow(props: {
       </View>
 
       <View style={styles.editorActions}>
-        <Pressable style={[styles.save, busy && styles.dim]} disabled={busy} onPress={save}>
-          <Text style={styles.saveText}>Save</Text>
+        <Pressable style={[styles.save, (!dirty || busy) && styles.dim]} disabled={!dirty || busy} onPress={save}>
+          <Text style={styles.saveText}>{dirty ? 'Save changes' : 'No changes'}</Text>
         </Pressable>
         <Pressable style={styles.cancel} disabled={busy} onPress={props.onPress}>
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={styles.cancelText}>Close</Text>
         </Pressable>
         <Pressable style={styles.remove} disabled={busy} onPress={remove}>
           <Text style={styles.removeText}>Remove</Text>
         </Pressable>
       </View>
-      <Text style={styles.note}>Changing the amount records a new count. Renaming or re-filing does not.</Text>
     </View>
   );
 }
@@ -405,7 +481,23 @@ const styles = StyleSheet.create({
   level: { color: '#c4c8e0', fontSize: 14 },
   restock: { color: '#ffb86b', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   reorder: { color: '#9fe0b0', fontSize: 11 },
-  editHint: { color: '#4a4f70', fontSize: 10, marginTop: 2 },
+  editHint: { color: '#7c9bff', fontSize: 11, marginTop: 4 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  quick: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' },
+  quickText: { color: '#c4c8e0', fontSize: 12, fontWeight: '600' },
+  quickOff: { color: '#4a4f70' },
+  quickBad: { borderWidth: 1, borderColor: '#4a3350', borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' },
+  quickBadText: { color: '#d99ac0', fontSize: 12, fontWeight: '600' },
+  confirm: { marginTop: 10, backgroundColor: '#1F2438', borderRadius: 12, padding: 12, gap: 8 },
+  confirmText: { color: '#F2F4FA', fontSize: 14 },
+  confirmYes: { backgroundColor: '#d99ac0', borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  confirmYesText: { color: '#0B0E1A', fontWeight: '700' },
+  confirmAlt: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  confirmAltText: { color: '#c4c8e0' },
+  confirmNo: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
+  confirmNoText: { color: '#8a8fb0' },
+  saveBar: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  editorTitle: { color: '#F2F4FA', fontSize: 16, fontWeight: '700', flex: 1 },
   editor: { backgroundColor: '#161a2e', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#3a3f60' },
   row2: { flexDirection: 'row', gap: 8 },
   half: { flex: 1 },

@@ -166,7 +166,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
         <Text style={styles.err}>{msg(shop.error)}</Text>
       ) : shop.data && shop.data.open.length + shop.data.done.length > 0 ? (
         <View>
-          {shop.data.open.map((it) => (
+          {shop.data.open.map((it: ShoppingItemView) => (
             <Pressable key={it.id} style={styles.row2} onPress={() => toggle(it)}>
               <View style={styles.checkbox} />
               <View style={styles.rowBody}>
@@ -176,7 +176,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
             </Pressable>
           ))}
           {shop.data.done.length > 0 ? <Text style={styles.subhead}>Bought</Text> : null}
-          {shop.data.done.map((it) => (
+          {shop.data.done.map((it: ShoppingItemView) => (
             <Pressable key={it.id} style={styles.row2} onPress={() => toggle(it)}>
               <View style={[styles.checkbox, styles.checkboxDone]}>
                 <Text style={styles.check}>✓</Text>
@@ -198,7 +198,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
         <Text style={styles.err}>{msg(inv.error)}</Text>
       ) : inv.data && inv.data.length > 0 ? (
         <View>
-          {inv.data.map((it) => (
+          {inv.data.map((it: InventoryView) => (
             <Pressable key={it.id} style={styles.row2} disabled={!it.approximate} onPress={() => cycle(it)}>
               <View style={styles.rowBody}>
                 <Text style={styles.rowTitle}>{it.name}</Text>
