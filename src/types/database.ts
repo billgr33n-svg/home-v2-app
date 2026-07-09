@@ -686,39 +686,51 @@ export type Database = {
       }
       item_catalog: {
         Row: {
+          barcode: string | null
           brand: string | null
+          category: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
+          full_name: string | null
           household_id: string
           id: string
           name: string
+          sku: string | null
           source: string
           store: string | null
           unit: string | null
           updated_at: string
         }
         Insert: {
+          barcode?: string | null
           brand?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          full_name?: string | null
           household_id: string
           id?: string
           name: string
+          sku?: string | null
           source?: string
           store?: string | null
           unit?: string | null
           updated_at?: string
         }
         Update: {
+          barcode?: string | null
           brand?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          full_name?: string | null
           household_id?: string
           id?: string
           name?: string
+          sku?: string | null
           source?: string
           store?: string | null
           unit?: string | null

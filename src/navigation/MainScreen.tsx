@@ -9,11 +9,12 @@ import { EventsScreen } from '../screens/EventsScreen';
 import { MealsScreen } from '../screens/MealsScreen';
 import { PollsScreen } from '../screens/PollsScreen';
 import { RidesScreen } from '../screens/RidesScreen';
+import { ScanScreen } from '../screens/ScanScreen';
 import { ShopScreen } from '../screens/ShopScreen';
 import { TasksScreen } from '../screens/TasksScreen';
 import { TodayScreen } from '../screens/TodayScreen';
 
-type Tab = 'today' | 'events' | 'rides' | 'meals' | 'announce' | 'polls' | 'shop' | 'tasks' | 'upkeep';
+type Tab = 'today' | 'events' | 'rides' | 'meals' | 'announce' | 'polls' | 'shop' | 'scan' | 'tasks' | 'upkeep';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'events', label: 'Events' },
@@ -22,6 +23,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'announce', label: 'News' },
   { key: 'polls', label: 'Polls' },
   { key: 'shop', label: 'Shop' },
+  { key: 'scan', label: 'Scan' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'upkeep', label: 'Upkeep' },
 ];

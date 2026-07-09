@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { useQueryClient } from '@tanstack/react-query';
 
 import { setInventoryLevel } from '../api/inventory';
-import { addShoppingItem, setShoppingItemDone, type ItemSuggestion } from '../api/shopping';
+import { addShoppingItem, rankSuggestions, setShoppingItemDone, type ItemSuggestion } from '../api/shopping';
 import { nextLevel, type InventoryView } from '../domain/inventory';
 import type { ShoppingItemView } from '../domain/shopping';
 import { useInventory } from '../hooks/useInventory';
@@ -36,11 +36,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
 
   // Keep matches visible even on an exact name match, so you can switch stores
   // after picking one. Brand and size differ per store, so the store is the choice.
-  const typed = name.trim().toLowerCase();
-  const suggestions: ItemSuggestion[] =
-    typed.length > 0
-      ? (suggestionsQ.data ?? []).filter((s) => s.name.toLowerCase().startsWith(typed)).slice(0, 6)
-      : [];
+  const suggestions: ItemSuggestion[] = rankSuggestions(suggestionsQ.data ?? [], name, 6);
 
   const applySuggestion = (s: ItemSuggestion) => {
     setName(s.name);
@@ -120,9 +116,10 @@ export function ShopScreen({ householdId }: { householdId: string }) {
                   onPress={() => applySuggestion(s)}
                 >
                   {s.store ? <Text style={styles.chipStore}>{s.store}</Text> : null}
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {[s.brand, s.unit].filter(Boolean).join(' · ') || s.name}
-                  </Text>
+                  <Text style={[styles.chipName, active && styles.chipTextActive]}>{s.name}</Text>
+                  {s.brand || s.unit ? (
+                    <Text style={styles.chipText}>{[s.brand, s.unit].filter(Boolean).join(' · ')}</Text>
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -235,7 +232,8 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
   chipActive: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
   chipStore: { color: '#7c9bff', fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 2 },
-  chipText: { color: '#c4c8e0', fontSize: 13 },
+  chipName: { color: '#e8eaf6', fontSize: 14, fontWeight: '600' },
+  chipText: { color: '#9aa0c0', fontSize: 12, marginTop: 1 },
   chipTextActive: { color: '#ffffff' },
   clearStore: { color: '#8a8fb0', fontSize: 12, marginTop: 2 },
   add: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },

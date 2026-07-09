@@ -6,6 +6,30 @@ export interface ItemSuggestion {
   brand: string | null;
   unit: string | null;
   store: string | null;
+  category?: string | null;
+}
+
+// Rank prefix matches above substring matches, then shorter names (more specific
+// query -> more relevant item), then alphabetically. With a 200-item catalog,
+// plain startsWith is too strict: typing "beef" should still find "Ground beef".
+export function rankSuggestions(all: readonly ItemSuggestion[], typed: string, limit = 6): ItemSuggestion[] {
+  const q = typed.trim().toLowerCase();
+  if (!q) return [];
+  const scored: Array<{ s: ItemSuggestion; score: number }> = [];
+  for (const s of all) {
+    const n = s.name.toLowerCase();
+    if (n.startsWith(q)) scored.push({ s, score: 0 });
+    else if (n.includes(q)) scored.push({ s, score: 1 });
+    else if ((s.brand ?? '').toLowerCase().includes(q)) scored.push({ s, score: 2 });
+  }
+  scored.sort(
+    (a, b) =>
+      a.score - b.score ||
+      a.s.name.length - b.s.name.length ||
+      a.s.name.localeCompare(b.s.name) ||
+      (a.s.store ?? '').localeCompare(b.s.store ?? ''),
+  );
+  return scored.slice(0, limit).map((x) => x.s);
 }
 
 export async function fetchShoppingList(householdId: string): Promise<ShoppingList> {
@@ -40,7 +64,7 @@ export async function fetchItemSuggestions(householdId: string): Promise<ItemSug
   const [catRes, invRes, shopRes] = await Promise.all([
     supabase
       .from('item_catalog')
-      .select('name,brand,unit,store')
+      .select('name,brand,unit,store,category')
       .eq('household_id', householdId)
       .is('deleted_at', null),
     supabase
@@ -67,7 +91,7 @@ export async function fetchItemSuggestions(householdId: string): Promise<ItemSug
   };
 
   for (const r of catRes.data ?? []) {
-    put({ name: r.name, brand: r.brand ?? null, unit: r.unit ?? null, store: r.store ?? null });
+    put({ name: r.name, brand: r.brand ?? null, unit: r.unit ?? null, store: r.store ?? null, category: r.category ?? null });
   }
   for (const r of invRes.data ?? []) {
     put({ name: r.name, brand: r.brand ?? null, unit: r.unit ?? null, store: null });
