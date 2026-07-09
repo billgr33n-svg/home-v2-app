@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -32,36 +32,40 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Submit automatically once the PIN is complete. Nobody wants to hunt for a
-  // button after typing four digits.
-  useEffect(() => {
-    if (!member || pin.length !== PIN_LENGTH || busy) return;
-    let cancelled = false;
-
-    const run = async () => {
-      setBusy(true);
-      setError(null);
-      try {
-        const email = emailFor(member.name);
-        if (!email) throw new Error('Unknown person.');
-        await signIn(email, pin);
-      } catch (e) {
-        if (cancelled) return;
-        setError(friendlyError(e));
-        setPin('');
-      } finally {
-        if (!cancelled) setBusy(false);
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [pin, member, busy, signIn]);
+  /**
+   * Submit from the keypress, NOT from a useEffect on `pin`.
+   *
+   * The effect version deadlocked: `busy` was in its dependency list, so setting
+   * busy=true re-ran the effect, and the re-run's cleanup flipped the in-flight
+   * request's `cancelled` flag. The rejection came back, the handler saw
+   * cancelled, and skipped both setError and setBusy(false) — the spinner span
+   * forever on a request that had already failed in 174ms.
+   */
+  const attempt = async (fullPin: string) => {
+    if (!member || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const email = emailFor(member.name);
+      if (!email) throw new Error('Unknown person.');
+      await signIn(email, fullPin);
+      // On success the auth provider swaps this screen out; nothing to do here.
+    } catch (e) {
+      setError(friendlyError(e));
+      setPin('');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const press = (digit: string) => {
+    if (busy || pin.length >= PIN_LENGTH) return;
+    // Compute outside the updater: React can invoke a state updater twice in
+    // StrictMode, and firing a sign-in request twice is not a side effect we want.
+    const next = pin + digit;
     setError(null);
-    setPin((p) => (p.length >= PIN_LENGTH ? p : p + digit));
+    setPin(next);
+    if (next.length === PIN_LENGTH) void attempt(next);
   };
   const back = () => {
     setError(null);
