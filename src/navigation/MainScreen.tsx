@@ -91,7 +91,16 @@ export function MainScreen(props: { householdId: string; householdName: string; 
           {screen === null && activeSection ? (
             <SectionLanding section={activeSection} onPick={setScreen} />
           ) : null}
-          {screen === 'today' && <TodayScreen householdId={props.householdId} />}
+          {screen === 'today' && (
+            <TodayScreen
+              householdId={props.householdId}
+              onOpenScreen={(k) => {
+                const s = sectionFor(k);
+                if (s) setSection(s.key);
+                setScreen(k);
+              }}
+            />
+          )}
           {screen === 'meals' && <MealsTab householdId={props.householdId} />}
           {screen === 'shop' && <ShopScreen householdId={props.householdId} />}
           {screen === 'inventory' && <InventoryScreen householdId={props.householdId} />}
