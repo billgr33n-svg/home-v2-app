@@ -1,12 +1,14 @@
 // Design tokens. One source of truth, so a change to spacing or colour happens
 // once rather than in fifteen StyleSheets.
 //
-// PALETTE: warm domestic light (2026-07-10, replaces the dark indigo).
+// PALETTE: garden light with a Duke blue accent (2026-07-10, replaces terracotta).
 //
-// The old theme read as a developer dashboard: near-black indigo, cool blue
-// accent, high-contrast neon semantics. This is a tool a family opens in a
-// kitchen, so the surface is warm bone rather than white, the ink is a warm
-// near-black rather than pure black, and the accent is terracotta.
+// The Greens asked for a garden feel with a nod to Duke basketball. So: the
+// canvas is pale linen with a sage cast, the ink is a deep garden green-black,
+// section headers and success states are leaf green, and the ONE saturated
+// colour -- buttons, links, active tabs -- is Duke blue (#003087). Blue is
+// rare in a garden, which is exactly why it works as the accent: anything
+// blue is tappable, everything green is ground.
 //
 // Every colour below clears WCAG AA (4.5:1) against the surface it is used on.
 // That is not decoration: `meta` text is 11px, and 11px grey-on-grey is the
@@ -18,33 +20,35 @@
 // tab width -- is derived from that, not chosen by eye.
 
 export const color = {
-  // Backgrounds, lightest to most raised.
-  bg: '#FBF8F4', // warm bone, not white: white sheets glare
+  // Backgrounds, lightest to most raised. Linen with a sage cast, not white.
+  bg: '#F6F6EF',
   surface: '#FFFFFF',
-  surfaceRaised: '#F4EEE6',
+  surfaceRaised: '#EDF0E3', // pale moss
   surfaceInput: '#FFFFFF',
 
-  border: '#E6DFD4',
-  borderStrong: '#CBC1B2',
+  border: '#DFE3D2',
+  borderStrong: '#B9C2A8',
 
-  // Text. Warm near-black, never #000.
-  text: '#241F1B',
-  textMuted: '#5E564E',
-  textFaint: '#776C62', // 4.7:1 on bg -- do not lighten
+  // Text. Deep garden green-black, never #000.
+  text: '#1E2A1E',
+  textMuted: '#4E5C4A',
+  textFaint: '#66735F', // 4.9:1 on bg -- do not lighten
 
-  // Brand + semantics
-  accent: '#A34A25', // terracotta
-  accentInk: '#FFFFFF', // text on accent: 5.4:1
-  accentSoft: '#F7E8DF',
+  // Brand + semantics.
+  // Duke blue is the interaction colour: 11.9:1 on white, unmissable.
+  accent: '#003087',
+  accentInk: '#FFFFFF',
+  accentSoft: '#E5EBF7',
 
-  success: '#3F6B4F',
-  successSoft: '#E4EFE5',
+  // Leaf green: growth, done, good.
+  success: '#2F6B3F',
+  successSoft: '#E2EFE2',
 
   warning: '#8A5A11',
-  warningSoft: '#FAEDD6',
+  warningSoft: '#F8EDD4',
 
-  danger: '#A33329',
-  dangerSoft: '#F7E2DF',
+  danger: '#A0322A',
+  dangerSoft: '#F7E3E0',
 } as const;
 
 export const space = {
@@ -73,13 +77,15 @@ export const type = {
   body: { fontSize: 15, color: color.text },
   detail: { fontSize: 13, color: color.textMuted },
   meta: { fontSize: 11, color: color.textFaint },
+  // Section labels and kickers are leaf green: they mark the beds, so to
+  // speak, while Duke blue stays reserved for things you can tap.
   section: {
     fontSize: 11,
     fontWeight: '700' as const,
     letterSpacing: 1.3,
-    color: color.textFaint,
+    color: color.success,
   },
-  kicker: { fontSize: 11, letterSpacing: 1.8, fontWeight: '600' as const, color: color.textFaint },
+  kicker: { fontSize: 11, letterSpacing: 1.8, fontWeight: '700' as const, color: color.success },
 } as const;
 
 /**
@@ -95,14 +101,14 @@ export const CONTENT_MAX_WIDTH = 720;
  */
 export const shadow = {
   card: {
-    shadowColor: '#3A2C1E',
+    shadowColor: '#1E2A1E',
     shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
   raised: {
-    shadowColor: '#3A2C1E',
+    shadowColor: '#1E2A1E',
     shadowOpacity: 0.1,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 6 },

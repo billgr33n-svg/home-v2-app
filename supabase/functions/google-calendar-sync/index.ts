@@ -21,6 +21,9 @@
 // (date-only). Google says which by giving `dateTime` or `date`. Coercing an
 // all-day event into a timestamp is how a birthday lands on the wrong day for
 // anyone west of UTC, so the two are kept apart.
+//
+// DEPLOY WITH verify_jwt: false (browser CORS preflight carries no auth header;
+// callerHousehold() enforces auth in-function). See google-calendar-connect.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import {
@@ -69,10 +72,16 @@ async function listEvents(
     if (syncToken) {
       url.searchParams.set('syncToken', syncToken);
     } else {
-      // First run: a rolling window, not all of history. Nobody needs 2009.
+      // First run: a BOUNDED window. timeMin keeps us out of 2009; timeMax is not
+      // optional. With singleEvents=true, one weekly recurring event (e.g. "Trash
+      // Pickup Tuesday") expands into ~1,500 rows stretching to 2056 unless an
+      // upper bound stops it. 13 months covers a household's real horizon.
       const from = new Date();
       from.setMonth(from.getMonth() - 1);
+      const to = new Date();
+      to.setMonth(to.getMonth() + 12);
       url.searchParams.set('timeMin', from.toISOString());
+      url.searchParams.set('timeMax', to.toISOString());
     }
 
     const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -99,7 +108,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: conn } = await svc
       .from('calendar_connections')
-      .select('id, credential_ref, sync_state, share_mode')
+      .select('id, credential_ref, sync_state, share_mode, calendar_allowlist')
       .eq('household_id', householdId)
       .eq('user_id', userId)
       .eq('provider', 'google')
@@ -118,7 +127,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const tokens: Record<string, string> = (conn.sync_state?.syncTokens ?? {}) as Record<string, string>;
-    const calendars = await listCalendars(accessToken);
+
+    // A connection may pin an allowlist of calendar ids. When set, we import ONLY
+    // those, regardless of what else the person keeps visible in Google -- so a
+    // household calendar is not flooded by holidays, sports subscriptions, or work
+    // calendars the owner happens to have checked. Null/empty = every selected
+    // calendar (the legacy behaviour).
+    const allow = (conn.calendar_allowlist ?? null) as string[] | null;
+    const selected = await listCalendars(accessToken);
+    const calendars = allow && allow.length > 0 ? selected.filter((id) => allow.includes(id)) : selected;
 
     let upserted = 0;
     let removed = 0;
@@ -132,6 +149,9 @@ Deno.serve(async (req: Request) => {
         result = await listEvents(accessToken, calendarId, undefined);
       }
 
+      const nowIso = new Date().toISOString();
+      const rowsById = new Map<string, Record<string, unknown>>();
+
       for (const ev of result.events) {
         const key = {
           provider_connection_id: conn.id,
@@ -139,11 +159,12 @@ Deno.serve(async (req: Request) => {
           provider_event_id: ev.id,
         };
 
-        // Deletions arrive as cancelled events. Soft-delete, per ADR-0006.
+        // Deletions arrive as cancelled events. Soft-delete, per ADR-0006. (A
+        // first full sync has none; they only come through an incremental token.)
         if (ev.status === 'cancelled') {
           const { count } = await svc
             .from('events')
-            .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
+            .update({ deleted_at: nowIso }, { count: 'exact' })
             .match(key)
             .is('deleted_at', null);
           removed += count ?? 0;
@@ -152,31 +173,39 @@ Deno.serve(async (req: Request) => {
 
         const timed = Boolean(ev.start?.dateTime);
 
-        const { error } = await svc.from('events').upsert(
-          {
-            ...key,
-            household_id: householdId,
-            creator_id: userId,
-            source: 'google',
-            title: ev.summary ?? '(no title)',
-            description: ev.description ?? null,
-            location_text: ev.location ?? null,
-            starts_at: timed ? ev.start!.dateTime : null,
-            ends_at: timed ? (ev.end?.dateTime ?? null) : null,
-            all_day_start: timed ? null : (ev.start?.date ?? null),
-            all_day_end: timed ? null : (ev.end?.date ?? null),
-            timezone: ev.start?.timeZone ?? null,
-            recurrence_rule: ev.recurrence?.[0] ?? null,
-            privacy: conn.share_mode === 'private' ? 'private' : 'shared',
-            status: ev.status === 'tentative' ? 'tentative' : 'confirmed',
-            deleted_at: null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'provider_connection_id,provider_calendar_id,provider_event_id' },
-        );
+        // Dedupe within a calendar: a bulk upsert cannot touch the same conflict
+        // key twice in one statement. Last write wins.
+        rowsById.set(ev.id, {
+          ...key,
+          household_id: householdId,
+          creator_id: userId,
+          source: 'google',
+          title: ev.summary ?? '(no title)',
+          description: ev.description ?? null,
+          location_text: ev.location ?? null,
+          starts_at: timed ? ev.start!.dateTime : null,
+          ends_at: timed ? (ev.end?.dateTime ?? null) : null,
+          all_day_start: timed ? null : (ev.start?.date ?? null),
+          all_day_end: timed ? null : (ev.end?.date ?? null),
+          timezone: ev.start?.timeZone ?? null,
+          recurrence_rule: ev.recurrence?.[0] ?? null,
+          privacy: conn.share_mode === 'private' ? 'private' : 'shared',
+          status: ev.status === 'tentative' ? 'tentative' : 'confirmed',
+          deleted_at: null,
+          updated_at: nowIso,
+        });
+      }
 
-        // One malformed event must not abort the whole sync.
-        if (!error) upserted += 1;
+      // Bulk upsert in chunks. One round trip per ~500 events instead of one per
+      // event is the difference between finishing in seconds and timing out at 45.
+      const rows = [...rowsById.values()];
+      for (let i = 0; i < rows.length; i += 500) {
+        const chunk = rows.slice(i, i + 500);
+        const { error } = await svc
+          .from('events')
+          .upsert(chunk, { onConflict: 'provider_connection_id,provider_calendar_id,provider_event_id' });
+        // A failed chunk must not abort the remaining calendars.
+        if (!error) upserted += chunk.length;
       }
 
       if (result.nextSyncToken) tokens[calendarId] = result.nextSyncToken;

@@ -97,6 +97,7 @@ export function AuthScreen() {
       <SafeAreaView style={styles.safe}>
         <StatusBar style="dark" />
         <View style={styles.container}>
+          <Text style={styles.mark}>🏡🌱</Text>
           <Text style={styles.kicker}>GREEN HOUSEHOLD</Text>
           <Text style={styles.title}>Who's this?</Text>
           {/*
@@ -185,6 +186,7 @@ export function AuthScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: color.bg },
   container: { flex: 1, paddingHorizontal: space.xl, justifyContent: 'center', maxWidth: 460, width: '100%', alignSelf: 'center' },
+  mark: { fontSize: 34, marginBottom: space.sm },
   kicker: { ...t.kicker, marginBottom: 4 },
   title: { ...t.title, fontSize: 28 },
   subtitle: { color: color.textMuted, fontSize: 15, marginTop: 6 },

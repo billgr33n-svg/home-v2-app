@@ -10,6 +10,7 @@ import type { Priority, TodayItem, TodayItemKind } from '../domain/today';
 import { type HouseholdMember } from '../api/members';
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers';
 import { useTodayFeed } from '../hooks/useToday';
+import { CalendarCard } from './HouseCalendar';
 import { KitchenTodayCard } from './KitchenTodayCard';
 import { UseSoonCard } from './UseSoonCard';
 
@@ -174,6 +175,7 @@ export function TodayScreen({ householdId }: { householdId: string }) {
     return (
       <View style={styles.wrap}>
         <ScrollView contentContainerStyle={styles.list}>
+          <CalendarCard householdId={householdId} />
           <KitchenTodayCard householdId={householdId} />
           <UseSoonCard householdId={householdId} />
           <View style={styles.centeredInline}>
@@ -192,6 +194,7 @@ export function TodayScreen({ householdId }: { householdId: string }) {
         renderItem={renderItem}
         ListHeaderComponent={
           <>
+            <CalendarCard householdId={householdId} />
             <KitchenTodayCard householdId={householdId} />
             <UseSoonCard householdId={householdId} />
           </>

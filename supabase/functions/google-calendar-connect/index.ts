@@ -11,6 +11,13 @@
 // already granted the scope returns an access token and NO refresh token.
 // Everything works for an hour, then the connection is dead and the bug looks
 // like it lives in the sync function. It does not. It lives here.
+//
+// DEPLOY WITH verify_jwt: false. The browser reaches this via
+// supabase.functions.invoke (a cross-origin POST), so a CORS preflight OPTIONS
+// runs first WITHOUT an Authorization header. Gateway verify_jwt:true 401s that
+// preflight and the client shows "Could not reach Google" though Google was
+// never contacted. Auth is enforced below by callerHousehold(), so
+// verify_jwt:false is safe and REQUIRED. (deploy_edge_function defaults it true.)
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { callerHousehold, corsHeaders, HttpError, json, requiredEnv, SCOPE, serviceClient } from '../_shared/google.ts';

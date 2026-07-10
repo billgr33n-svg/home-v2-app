@@ -13,6 +13,9 @@
 // Order matters: revoke first, so a failure there can still be reported. But a
 // Google outage must not trap the user in a connection they asked to end, so a
 // failed revoke is reported, not fatal.
+//
+// DEPLOY WITH verify_jwt: false (browser CORS preflight carries no auth header;
+// callerHousehold() enforces auth in-function). See google-calendar-connect.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import {

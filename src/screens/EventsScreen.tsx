@@ -6,8 +6,9 @@ import { createEvent, type EventView } from '../api/events';
 import { useEvents } from '../hooks/useEvents';
 
 import { CalendarConnect } from './CalendarConnect';
+import { EventDetailModal, HouseCalendar } from './HouseCalendar';
 
-import { color } from '../theme';
+import { color, radius } from '../theme';
 
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
@@ -22,7 +23,11 @@ function todayDateString(now = new Date()): string {
 }
 
 function dayLabel(iso: string): string {
-  const d = new Date(iso);
+  // All-day events carry a bare 'YYYY-MM-DD'; new Date() would parse that as
+  // UTC midnight and render it a day early in Georgia. Build it from parts.
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
+    : new Date(iso);
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
@@ -35,10 +40,14 @@ function timeLabel(iso: string): string {
   return `${h}:${m} ${ampm}`;
 }
 
+type ViewMode = 'list' | 'week' | 'month';
+
 export function EventsScreen({ householdId }: { householdId: string }) {
   const qc = useQueryClient();
   const q = useEvents(householdId);
 
+  const [view, setView] = useState<ViewMode>('list');
+  const [openEvent, setOpenEvent] = useState<EventView | null>(null);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayDateString());
   const [time, setTime] = useState('18:00');
@@ -67,17 +76,30 @@ export function EventsScreen({ householdId }: { householdId: string }) {
   };
 
   const renderItem = ({ item }: { item: EventView }) => (
-    <View style={styles.card}>
+    <Pressable style={styles.card} onPress={() => setOpenEvent(item)}>
       <View style={styles.when}>
         <Text style={styles.day}>{dayLabel(item.startsAt)}</Text>
-        <Text style={styles.time}>{timeLabel(item.startsAt)}</Text>
+        <Text style={styles.time}>{item.allDay ? 'All day' : timeLabel(item.startsAt)}</Text>
       </View>
       <Text style={styles.title}>{item.title}</Text>
-    </View>
+      {item.location ? <Text style={styles.where}>📍 {item.location}</Text> : null}
+    </Pressable>
   );
+
+  // Week and month delegate wholesale to the shared HouseCalendar, so the
+  // Today card's sheet and this screen can never drift apart.
+  if (view !== 'list') {
+    return (
+      <View style={styles.wrap}>
+        <ViewToggle view={view} onChange={setView} />
+        <HouseCalendar householdId={householdId} initialMode={view} key={view} hideModeToggle />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.wrap}>
+      <ViewToggle view={view} onChange={setView} />
       <View style={styles.connect}>
         <CalendarConnect />
       </View>
@@ -120,6 +142,25 @@ export function EventsScreen({ householdId }: { householdId: string }) {
       ) : (
         <Text style={styles.empty}>Nothing on the calendar yet.</Text>
       )}
+      <EventDetailModal event={openEvent} onClose={() => setOpenEvent(null)} />
+    </View>
+  );
+}
+
+function ViewToggle(props: { view: ViewMode; onChange: (v: ViewMode) => void }) {
+  return (
+    <View style={styles.toggle}>
+      {(['list', 'week', 'month'] as const).map((v) => (
+        <Pressable
+          key={v}
+          style={[styles.toggleBtn, props.view === v && styles.toggleOn]}
+          onPress={() => props.onChange(v)}
+        >
+          <Text style={[styles.toggleText, props.view === v && styles.toggleTextOn]}>
+            {v === 'list' ? 'List' : v === 'week' ? 'Week' : 'Month'}
+          </Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -141,6 +182,20 @@ const styles = StyleSheet.create({
   day: { color: color.accent, fontSize: 13, fontWeight: '600' },
   time: { color: color.textMuted, fontSize: 13 },
   title: { color: color.text, fontSize: 16, fontWeight: '600' },
+  where: { color: color.textMuted, fontSize: 13 },
   empty: { color: color.textFaint, textAlign: 'center', marginTop: 32, fontSize: 15 },
   err: { color: color.danger, fontSize: 14 },
+
+  toggle: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    backgroundColor: color.surfaceRaised,
+    borderRadius: radius.pill,
+    padding: 3,
+    marginTop: 12,
+  },
+  toggleBtn: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 20, borderRadius: radius.pill },
+  toggleOn: { backgroundColor: color.accent },
+  toggleText: { color: color.textMuted, fontSize: 14, fontWeight: '600' },
+  toggleTextOn: { color: color.accentInk },
 });

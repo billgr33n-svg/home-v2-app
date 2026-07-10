@@ -42,11 +42,15 @@ export interface Destination {
   label: string;
   /** One line, shown in a section's landing list. Say what it is FOR. */
   blurb: string;
+  /** Emoji glyph shown in landing lists and the More sheet. No icon-font dep. */
+  icon: string;
 }
 
 export interface Section {
   key: SectionKey;
   label: string;
+  /** Emoji glyph shown in the tab bar. */
+  icon: string;
   /** Sections with a single destination render it directly, with no landing list. */
   destinations: Destination[];
 }
@@ -55,40 +59,45 @@ export const SECTIONS: Section[] = [
   {
     key: 'today',
     label: 'Today',
-    destinations: [{ key: 'today', label: 'Today', blurb: 'What needs you now.' }],
+    icon: '🌱',
+    destinations: [{ key: 'today', label: 'Today', blurb: 'What needs you now.', icon: '🌱' }],
   },
   {
     key: 'food',
     label: 'Food',
+    icon: '🍅',
     destinations: [
-      { key: 'meals', label: 'Meals', blurb: 'Tonight, and the week ahead.' },
-      { key: 'shop', label: 'Shopping', blurb: 'What to buy, and what ran out.' },
-      { key: 'inventory', label: 'Inventory', blurb: 'Fridge, pantry, bar. Scan to count.' },
-      { key: 'waste', label: 'Waste', blurb: 'What got eaten, what got thrown away.' },
+      { key: 'meals', label: 'Meals', blurb: 'Tonight, and the week ahead.', icon: '🍽️' },
+      { key: 'shop', label: 'Shopping', blurb: 'What to buy, and what ran out.', icon: '🧺' },
+      { key: 'inventory', label: 'Inventory', blurb: 'Fridge, pantry, bar. Scan to count.', icon: '🥫' },
+      { key: 'waste', label: 'Waste', blurb: 'What got eaten, what got thrown away.', icon: '🍂' },
     ],
   },
   {
     key: 'home',
     label: 'Home',
+    icon: '🏡',
     destinations: [
-      { key: 'kitchen', label: 'Kitchen', blurb: 'Sign up for this week.' },
-      { key: 'tasks', label: 'Tasks', blurb: 'Chores and requests.' },
-      { key: 'upkeep', label: 'Upkeep', blurb: 'Filters, service, things that need doing.' },
-      { key: 'events', label: 'Calendar', blurb: 'What is on, and when.' },
+      { key: 'kitchen', label: 'Kitchen', blurb: 'Sign up for this week.', icon: '👩‍🍳' },
+      { key: 'tasks', label: 'Tasks', blurb: 'Chores and requests.', icon: '🧹' },
+      { key: 'upkeep', label: 'Upkeep', blurb: 'Filters, service, things that need doing.', icon: '🔧' },
+      { key: 'events', label: 'Calendar', blurb: 'What is on, and when.', icon: '🗓️' },
     ],
   },
   {
     key: 'family',
     label: 'Family',
+    icon: '🌻',
     destinations: [
-      { key: 'announce', label: 'News', blurb: 'Announcements everyone should see.' },
-      { key: 'polls', label: 'Polls', blurb: 'Ask the house a question.' },
-      { key: 'rides', label: 'Rides', blurb: 'Who is driving whom.' },
+      { key: 'announce', label: 'News', blurb: 'Announcements everyone should see.', icon: '📣' },
+      { key: 'polls', label: 'Polls', blurb: 'Ask the house a question.', icon: '🗳️' },
+      { key: 'rides', label: 'Rides', blurb: 'Who is driving whom.', icon: '🚗' },
     ],
   },
   {
     key: 'more',
     label: 'More',
+    icon: '⋯',
     destinations: [],
   },
 ];

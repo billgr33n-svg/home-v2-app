@@ -116,7 +116,9 @@ export function MainScreen(props: { householdId: string; householdName: string; 
             const active = !moreOpen && activeSection?.key === s.key;
             return (
               <Pressable key={s.key} style={styles.tab} onPress={() => openSection(s)} accessibilityRole="tab">
-                <View style={[styles.dot, active && styles.dotOn]} />
+                <View style={[styles.tabIconWrap, active && styles.tabIconWrapOn]}>
+                  <Text style={styles.tabIcon}>{s.icon}</Text>
+                </View>
                 <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={1}>
                   {s.label}
                 </Text>
@@ -124,7 +126,9 @@ export function MainScreen(props: { householdId: string; householdName: string; 
             );
           })}
           <Pressable style={styles.tab} onPress={() => setMoreOpen(true)} accessibilityRole="button">
-            <View style={[styles.dot, moreOpen && styles.dotOn]} />
+            <View style={[styles.tabIconWrap, moreOpen && styles.tabIconWrapOn]}>
+              <Text style={styles.tabIcon}>⋯</Text>
+            </View>
             <Text style={[styles.tabText, moreOpen && styles.tabTextActive]}>More</Text>
           </Pressable>
         </View>
@@ -149,6 +153,9 @@ function SectionLanding(props: { section: Section; onPick: (k: ScreenKey) => voi
     <ScrollView contentContainerStyle={styles.landing}>
       {props.section.destinations.map((d) => (
         <Pressable key={d.key} style={styles.landingRow} onPress={() => props.onPick(d.key)}>
+          <View style={styles.landingIconWrap}>
+            <Text style={styles.landingIcon}>{d.icon}</Text>
+          </View>
           <View style={styles.landingText}>
             <Text style={styles.landingTitle}>{d.label}</Text>
             <Text style={styles.landingBlurb}>{d.blurb}</Text>
@@ -177,12 +184,16 @@ function MoreSheet(props: { open: boolean; onClose: () => void; onPick: (k: Scre
               <Text style={styles.sheetSection}>{s.label.toUpperCase()}</Text>
               {s.destinations.map((d) => (
                 <Pressable key={d.key} style={styles.sheetRow} onPress={() => props.onPick(d.key)}>
-                  <Text style={styles.sheetRowTitle}>{d.label}</Text>
-                  <Text style={styles.sheetRowBlurb}>{d.blurb}</Text>
+                  <Text style={styles.landingIcon}>{d.icon}</Text>
+                  <View style={styles.sheetRowText}>
+                    <Text style={styles.sheetRowTitle}>{d.label}</Text>
+                    <Text style={styles.sheetRowBlurb}>{d.blurb}</Text>
+                  </View>
                 </Pressable>
               ))}
             </View>
           ))}
+          <Text style={styles.sheetFooter}>Grown in Milton, GA 🌱 · Go Duke 💙</Text>
         </ScrollView>
       </View>
     </Modal>
@@ -194,7 +205,13 @@ const styles = StyleSheet.create({
 
   // Centre the content column on wide screens instead of stretching chips to 1400px.
   column: { width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center', flex: 1 },
-  headerOuter: { width: '100%', backgroundColor: color.bg },
+  // A hairline of leaf green under the header: the garden hedge line.
+  headerOuter: {
+    width: '100%',
+    backgroundColor: color.bg,
+    borderBottomWidth: 2,
+    borderBottomColor: color.successSoft,
+  },
 
   header: {
     paddingHorizontal: space.xl,
@@ -233,6 +250,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 68,
   },
+  landingIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: color.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: space.md,
+  },
+  landingIcon: { fontSize: 22 },
   landingText: { flex: 1, gap: 2 },
   landingTitle: { ...t.heading },
   landingBlurb: { ...t.detail },
@@ -253,15 +280,26 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    minHeight: TOUCH + 8,
+    minHeight: TOUCH + 16,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 3,
+    paddingVertical: space.xs,
   },
-  dot: { height: 5, width: 5, borderRadius: 3, backgroundColor: 'transparent' },
-  dotOn: { backgroundColor: color.accent },
+  // The active section sits on a pale Duke-blue pill: one glance at the bar
+  // tells you where you are, and the pill is a bigger visual target than a dot.
+  tabIconWrap: {
+    minWidth: 52,
+    height: 28,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  tabIconWrapOn: { backgroundColor: color.accentSoft },
+  tabIcon: { fontSize: 17 },
   tabText: { color: color.textFaint, fontSize: 12, fontWeight: '600' },
-  tabTextActive: { color: color.accent },
+  tabTextActive: { color: color.accent, fontWeight: '700' },
 
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(36, 31, 27, 0.35)' },
   sheet: {
@@ -288,7 +326,19 @@ const styles = StyleSheet.create({
   sheetBody: { padding: space.xl, gap: space.xl },
   sheetGroup: { gap: space.sm },
   sheetSection: { ...t.section, marginBottom: space.xs },
-  sheetRow: { ...cardBase, minHeight: 62, justifyContent: 'center', gap: 2 },
+  sheetRow: {
+    ...cardBase,
+    minHeight: 62,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  sheetRowText: { flex: 1, gap: 2 },
   sheetRowTitle: { ...t.heading },
   sheetRowBlurb: { ...t.detail },
+  sheetFooter: {
+    ...t.meta,
+    textAlign: 'center',
+    paddingVertical: space.md,
+  },
 });
