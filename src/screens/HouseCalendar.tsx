@@ -311,18 +311,55 @@ export function EventDetailModal(props: { event: EventView | null; onClose: () =
 }
 
 /**
- * The Today screen's doorway into the calendar: a compact card with Week and
- * Month buttons that open the full calendar as a sheet. A card, not a tab —
- * Today stays the reflex screen, and the calendar is one tap away.
+ * The Today screen's doorway into the calendar. It leads with today's agenda —
+ * the single question a "Today" screen exists to answer — pulled inline from the
+ * same event store, all-day first then timed. Week and Month buttons open the
+ * full calendar as a sheet. A card, not a tab: Today stays the reflex screen.
  */
 export function CalendarCard(props: { householdId: string }) {
   const [open, setOpen] = useState<Mode | null>(null);
+  const [openEvent, setOpenEvent] = useState<EventView | null>(null);
+
+  const now = useMemo(() => new Date(), []);
+  const todayStart = useMemo(() => addDays(now, 0), [now]);
+  const tomorrowStart = useMemo(() => addDays(now, 1), [now]);
+  // fetchEventsInRange returns all-day events first, then timed ascending — the
+  // exact order an agenda wants, so no re-sort here.
+  const q = useEventsRange(props.householdId, todayStart, tomorrowStart);
+  const events = q.data ?? [];
+
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
-        <Text style={styles.cardKicker}>CALENDAR</Text>
-        <Text style={styles.cardTitle}>What's coming up</Text>
+        <Text style={styles.cardKicker}>TODAY'S SCHEDULE</Text>
       </View>
+
+      {q.isLoading ? (
+        <ActivityIndicator color={color.accent} />
+      ) : q.isError ? (
+        <Text style={styles.agendaEmpty}>Couldn't load the calendar. Pull down to retry.</Text>
+      ) : events.length === 0 ? (
+        <Text style={styles.agendaEmpty}>Nothing on the calendar today.</Text>
+      ) : (
+        <View style={styles.agenda}>
+          {events.map((e) => (
+            <Pressable key={e.id} style={styles.agendaRow} onPress={() => setOpenEvent(e)}>
+              <Text style={styles.agendaWhen}>{e.allDay ? 'All day' : timeLabel(e.startsAt)}</Text>
+              <View style={styles.agendaBody}>
+                <Text style={styles.agendaTitle} numberOfLines={1}>
+                  {e.title}
+                </Text>
+                {e.location ? (
+                  <Text style={styles.agendaWhere} numberOfLines={1}>
+                    📍 {e.location}
+                  </Text>
+                ) : null}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <View style={styles.cardBtns}>
         <Pressable style={styles.cardBtn} onPress={() => setOpen('week')}>
           <Text style={styles.cardBtnText}>📅 Week</Text>
@@ -343,6 +380,8 @@ export function CalendarCard(props: { householdId: string }) {
           {open ? <HouseCalendar householdId={props.householdId} initialMode={open} /> : null}
         </View>
       </Modal>
+
+      <EventDetailModal event={openEvent} onClose={() => setOpenEvent(null)} />
     </View>
   );
 }
@@ -524,6 +563,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardBtnText: { color: color.accent, fontSize: 15, fontWeight: '700' },
+
+  agenda: { gap: 0 },
+  agendaRow: {
+    flexDirection: 'row',
+    gap: space.md,
+    alignItems: 'flex-start',
+    minHeight: TOUCH,
+    paddingVertical: space.sm,
+    borderTopWidth: 1,
+    borderTopColor: color.border,
+  },
+  agendaWhen: { color: color.accent, fontSize: 13, fontWeight: '700', width: 62, marginTop: 1 },
+  agendaBody: { flex: 1, gap: 1 },
+  agendaTitle: { ...t.body, fontWeight: '600' },
+  agendaWhere: { ...t.detail },
+  agendaEmpty: { ...t.detail, color: color.textFaint },
 
   fullSheet: { flex: 1, backgroundColor: color.bg },
   fullHead: {
