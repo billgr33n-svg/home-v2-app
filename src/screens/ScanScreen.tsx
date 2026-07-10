@@ -17,6 +17,8 @@ import { rankSuggestions, suggestionsByBrand, type ItemSuggestion } from '../api
 import { useItemSuggestions } from '../hooks/useItemSuggestions';
 import { useLocations } from '../hooks/useLocations';
 
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
@@ -288,7 +290,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
           <TextInput
             style={[styles.input, styles.grow]}
             placeholder="e.g. Basement fridge"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={newLocation}
             onChangeText={setNewLocation}
           />
@@ -335,7 +337,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
         <TextInput
           style={[styles.input, styles.grow]}
           placeholder="Barcode number (optional)"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={typedCode}
           onChangeText={setTypedCode}
           keyboardType="number-pad"
@@ -345,7 +347,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
         </Pressable>
       </View>
 
-      {busy ? <ActivityIndicator color="#fff" style={styles.spin} /> : null}
+      {busy ? <ActivityIndicator color={color.accent} style={styles.spin} /> : null}
 
       {
         <View style={styles.card}>
@@ -359,7 +361,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
           <TextInput
             style={styles.input}
             placeholder="Item name"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={draft.name}
             onChangeText={(v) => setDraft((d) => ({ ...d, name: v, looked: true }))}
           />
@@ -379,7 +381,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
           <TextInput
             style={styles.input}
             placeholder="Brand (type to see everything from that brand)"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={draft.brand}
             onChangeText={set('brand')}
           />
@@ -397,7 +399,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
               </View>
             </>
           ) : null}
-          <TextInput style={styles.input} placeholder="Package size on the label (e.g. 50 oz)" placeholderTextColor="#6b6f8c" value={draft.unit} onChangeText={set('unit')} />
+          <TextInput style={styles.input} placeholder="Package size on the label (e.g. 50 oz)" placeholderTextColor={color.textFaint} value={draft.unit} onChangeText={set('unit')} />
 
           <Text style={styles.section}>HOW MUCH IS THERE</Text>
           <View style={styles.chips}>
@@ -449,7 +451,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
               <TextInput
                 style={styles.input}
                 placeholder="How much (e.g. 1.5)"
-                placeholderTextColor="#6b6f8c"
+                placeholderTextColor={color.textFaint}
                 value={measureQty}
                 onChangeText={setMeasureQty}
                 keyboardType="decimal-pad"
@@ -488,7 +490,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
           <TextInput
             style={styles.input}
             placeholder="Purchased on (YYYY-MM-DD)"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={purchasedOn}
             onChangeText={setPurchasedOn}
           />
@@ -498,7 +500,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
             <TextInput
               style={[styles.input, styles.half]}
               placeholder="Buy when below"
-              placeholderTextColor="#6b6f8c"
+              placeholderTextColor={color.textFaint}
               value={minQty}
               onChangeText={setMinQty}
               keyboardType="decimal-pad"
@@ -506,7 +508,7 @@ export function ScanScreen({ householdId }: { householdId: string }) {
             <TextInput
               style={[styles.input, styles.half]}
               placeholder="Ideal amount"
-              placeholderTextColor="#6b6f8c"
+              placeholderTextColor={color.textFaint}
               value={parQty}
               onChangeText={setParQty}
               keyboardType="decimal-pad"
@@ -540,36 +542,36 @@ export function ScanScreen({ householdId }: { householdId: string }) {
 
 const styles = StyleSheet.create({
   wrap: { padding: 20, paddingBottom: 40, gap: 10 },
-  hint: { color: '#a6abcc', fontSize: 14, lineHeight: 20, marginBottom: 4 },
-  warn: { color: '#ffb86b', fontSize: 13, lineHeight: 19 },
+  hint: { color: color.textMuted, fontSize: 14, lineHeight: 20, marginBottom: 4 },
+  warn: { color: color.warning, fontSize: 13, lineHeight: 19 },
   cameraBox: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#000', gap: 8 },
   video: { width: '100%', height: 260, objectFit: 'cover' } as unknown as Record<string, unknown>,
-  stop: { backgroundColor: '#2a2f4a', paddingVertical: 11, alignItems: 'center' },
-  stopText: { color: '#e8eaf6', fontWeight: '600' },
-  primary: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 15, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
+  stop: { backgroundColor: color.surfaceRaised, paddingVertical: 11, alignItems: 'center' },
+  stopText: { color: color.text, fontWeight: '600' },
+  primary: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 15, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
   dim: { opacity: 0.6 },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, minHeight: 48 },
-  lookup: { backgroundColor: '#2a2f4a', borderRadius: 12, paddingHorizontal: 18, justifyContent: 'center' },
-  lookupText: { color: '#e8eaf6', fontWeight: '600' },
-  card: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 8 },
-  cardHead: { color: '#c4c8e0', fontSize: 13, marginBottom: 2 },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, minHeight: 48, borderWidth: 1, borderColor: color.borderStrong },
+  lookup: { backgroundColor: color.surfaceRaised, borderRadius: 12, paddingHorizontal: 18, justifyContent: 'center' },
+  lookupText: { color: color.text, fontWeight: '600' },
+  card: { backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 8, borderWidth: 1, borderColor: color.border },
+  cardHead: { color: color.textMuted, fontSize: 13, marginBottom: 2 },
   manual: { alignItems: 'center', paddingVertical: 10 },
-  manualText: { color: '#8a8fb0', fontSize: 14 },
+  manualText: { color: color.textFaint, fontSize: 14 },
   spin: { marginVertical: 8 },
-  section: { color: '#8a8fb0', fontSize: 12, letterSpacing: 1.5, marginBottom: 6, marginTop: 6 },
+  section: { color: color.textFaint, fontSize: 12, letterSpacing: 1.5, marginBottom: 6, marginTop: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  chip: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
-  chipOn: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
-  chipStore: { color: '#7c9bff', fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 2 },
-  chipText: { color: '#c4c8e0', fontSize: 13 },
-  chipTextOn: { color: '#ffffff', fontWeight: '600' },
-  preview: { color: '#9fe0b0', fontSize: 13, marginTop: 2 },
-  subtle: { color: '#6b6f8c', fontSize: 12, lineHeight: 17 },
+  chip: { borderWidth: 1, borderColor: color.borderStrong, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
+  chipOn: { borderColor: color.accent, backgroundColor: color.accentSoft },
+  chipStore: { color: color.accent, fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 2 },
+  chipText: { color: color.textMuted, fontSize: 13 },
+  chipTextOn: { color: color.text, fontWeight: '600' },
+  preview: { color: color.success, fontSize: 13, marginTop: 2 },
+  subtle: { color: color.textFaint, fontSize: 12, lineHeight: 17 },
   half: { flex: 1 },
   logBox: { marginTop: 10 },
-  logLine: { color: '#9fe0b0', fontSize: 14, paddingVertical: 3 },
-  err: { color: '#ff9a9a', fontSize: 14, marginTop: 8 },
+  logLine: { color: color.success, fontSize: 14, paddingVertical: 3 },
+  err: { color: color.danger, fontSize: 14, marginTop: 8 },
 });

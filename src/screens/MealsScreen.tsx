@@ -7,6 +7,9 @@ import { dinnerResponseLabel, dinnerSummaryLabel, type MealResponse } from '../d
 import { type HouseholdMember } from '../api/members';
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers';
 import { useMeals } from '../hooks/useMeals';
+import { MealIngredients } from './MealIngredients';
+
+import { color } from '../theme';
 
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
@@ -168,6 +171,8 @@ export function MealsScreen({ householdId }: { householdId: string }) {
       ) : (
         <Text style={styles.allin}>Everyone has answered</Text>
       )}
+
+      <MealIngredients householdId={householdId} mealId={item.id} status={item.status} />
     </View>
   );
 
@@ -177,7 +182,7 @@ export function MealsScreen({ householdId }: { householdId: string }) {
         <TextInput
           style={styles.input}
           placeholder="Meal (e.g., Chicken tacos)"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={title}
           onChangeText={setTitle}
         />
@@ -192,7 +197,7 @@ export function MealsScreen({ householdId }: { householdId: string }) {
       </View>
 
       {q.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spinner} />
+        <ActivityIndicator color={color.accent} style={styles.spinner} />
       ) : q.isError ? (
         <Text style={styles.err}>{msg(q.error)}</Text>
       ) : q.data && q.data.length > 0 ? (
@@ -209,32 +214,32 @@ const styles = StyleSheet.create({
   wrap: { flex: 1 },
   composer: { padding: 20, paddingBottom: 8, gap: 10 },
   composerRow: { flexDirection: 'row', gap: 10 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
-  addBtn: { flex: 1, backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
-  addBtnAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3a3f60' },
-  addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
-  addTextAlt: { color: '#c4c8e0', fontWeight: '600', fontSize: 15 },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, borderWidth: 1, borderColor: color.borderStrong },
+  addBtn: { flex: 1, backgroundColor: color.accent, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  addBtnAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: color.border },
+  addText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
+  addTextAlt: { color: color.textMuted, fontWeight: '600', fontSize: 15 },
   busy: { opacity: 0.6 },
   spinner: { marginTop: 24 },
   list: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
-  card: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 10 },
+  card: { backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 10, borderWidth: 1, borderColor: color.border },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  title: { color: '#ffffff', fontSize: 16, fontWeight: '600', flex: 1 },
-  reqTag: { color: '#ffb86b', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  meta: { color: '#a6abcc', fontSize: 14 },
+  title: { color: color.text, fontSize: 16, fontWeight: '600', flex: 1 },
+  reqTag: { color: color.warning, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  meta: { color: color.textMuted, fontSize: 14 },
   cookRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   cookBtns: { flexDirection: 'row', gap: 8 },
-  cookName: { color: '#c4c8e0', fontSize: 13 },
-  noCook: { color: '#ffb86b', fontSize: 13 },
+  cookName: { color: color.textMuted, fontSize: 13 },
+  noCook: { color: color.warning, fontSize: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  pillActive: { backgroundColor: '#7c9bff', borderColor: '#7c9bff' },
-  pillText: { color: '#c4c8e0', fontSize: 14 },
-  pillTextActive: { color: '#0f1220', fontWeight: '700' },
-  clearText: { color: '#ff9a9a', fontSize: 14 },
+  pill: { borderWidth: 1, borderColor: color.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  pillActive: { backgroundColor: color.accent, borderColor: color.accent },
+  pillText: { color: color.textMuted, fontSize: 14 },
+  pillTextActive: { color: color.accentInk, fontWeight: '700' },
+  clearText: { color: color.danger, fontSize: 14 },
   opts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  waiting: { color: '#ffb86b', fontSize: 13 },
-  allin: { color: '#7c9bff', fontSize: 13 },
-  empty: { color: '#8a8fb0', textAlign: 'center', marginTop: 24, fontSize: 15 },
-  err: { color: '#ff9a9a', textAlign: 'center', padding: 16, fontSize: 14 },
+  waiting: { color: color.warning, fontSize: 13 },
+  allin: { color: color.accent, fontSize: 13 },
+  empty: { color: color.textFaint, textAlign: 'center', marginTop: 24, fontSize: 15 },
+  err: { color: color.danger, textAlign: 'center', padding: 16, fontSize: 14 },
 });

@@ -7,5 +7,7 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "expo-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", "expo-env.d.ts"],
+  "//": "supabase/functions is Deno (Deno.serve, jsr: imports, .ts-extension imports) and must not be typechecked by the Expo/RN compiler. eslint and jest also skip it.",
+  "exclude": ["node_modules", "supabase/functions"]
 }

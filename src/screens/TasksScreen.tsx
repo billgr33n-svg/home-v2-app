@@ -6,6 +6,8 @@ import { addTask, claimTask, completeTask } from '../api/tasks';
 import type { TaskView } from '../domain/tasks';
 import { useTasks } from '../hooks/useTasks';
 
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
@@ -94,7 +96,7 @@ export function TasksScreen({ householdId }: { householdId: string }) {
         <TextInput
           style={styles.input}
           placeholder="Add a task"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={title}
           onChangeText={setTitle}
           onSubmitEditing={add}
@@ -106,7 +108,7 @@ export function TasksScreen({ householdId }: { householdId: string }) {
       </View>
 
       {q.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spin} />
+        <ActivityIndicator color={color.accent} style={styles.spin} />
       ) : q.isError ? (
         <Text style={styles.err}>{msg(q.error)}</Text>
       ) : q.data && q.data.length > 0 ? (
@@ -122,23 +124,23 @@ export function TasksScreen({ householdId }: { householdId: string }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   composer: { flexDirection: 'row', gap: 8, padding: 20, paddingBottom: 8 },
-  input: { flex: 1, backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
-  add: { backgroundColor: '#7c9bff', borderRadius: 12, paddingHorizontal: 18, justifyContent: 'center' },
+  input: { flex: 1, backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, borderWidth: 1, borderColor: color.borderStrong },
+  add: { backgroundColor: color.accent, borderRadius: 12, paddingHorizontal: 18, justifyContent: 'center' },
   busy: { opacity: 0.6 },
-  addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
+  addText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
   spin: { marginTop: 24 },
   list: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
-  card: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 8 },
-  cardAlert: { borderWidth: 1, borderColor: '#ffb86b' },
+  card: { backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 8, borderWidth: 1, borderColor: color.border },
+  cardAlert: { borderWidth: 1, borderColor: color.warning },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  title: { color: '#ffffff', fontSize: 16, fontWeight: '600', flex: 1 },
-  repeats: { color: '#7c9bff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  meta: { color: '#a6abcc', fontSize: 14 },
+  title: { color: color.text, fontSize: 16, fontWeight: '600', flex: 1 },
+  repeats: { color: color.accent, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  meta: { color: color.textMuted, fontSize: 14 },
   row: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  btn: { backgroundColor: '#7c9bff', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
-  btnText: { color: '#0f1220', fontWeight: '700' },
-  btnAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3a3f60' },
-  btnAltText: { color: '#c4c8e0', fontWeight: '600' },
-  empty: { color: '#8a8fb0', textAlign: 'center', marginTop: 32, fontSize: 15 },
-  err: { color: '#ff9a9a', textAlign: 'center', padding: 16, fontSize: 14 },
+  btn: { backgroundColor: color.accent, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
+  btnText: { color: color.accentInk, fontWeight: '700' },
+  btnAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: color.border },
+  btnAltText: { color: color.textMuted, fontWeight: '600' },
+  empty: { color: color.textFaint, textAlign: 'center', marginTop: 32, fontSize: 15 },
+  err: { color: color.danger, textAlign: 'center', padding: 16, fontSize: 14 },
 });

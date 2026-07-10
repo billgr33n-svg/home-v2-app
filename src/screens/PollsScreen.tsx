@@ -6,6 +6,8 @@ import { closePoll, createPoll, respondToPoll, type PollView } from '../api/poll
 import { tallyLabel } from '../domain/polls';
 import { usePolls } from '../hooks/usePolls';
 
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
@@ -101,14 +103,14 @@ export function PollsScreen({ householdId }: { householdId: string }) {
         <TextInput
           style={styles.input}
           placeholder="Poll question"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={question}
           onChangeText={setQuestion}
         />
         <TextInput
           style={styles.input}
           placeholder="Options, comma separated"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={optionsText}
           onChangeText={setOptionsText}
         />
@@ -119,7 +121,7 @@ export function PollsScreen({ householdId }: { householdId: string }) {
       </View>
 
       {q.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spinner} />
+        <ActivityIndicator color={color.accent} style={styles.spinner} />
       ) : q.isError ? (
         <Text style={styles.err}>{msg(q.error)}</Text>
       ) : q.data && q.data.length > 0 ? (
@@ -134,22 +136,22 @@ export function PollsScreen({ householdId }: { householdId: string }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   composer: { padding: 20, gap: 10 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
-  btn: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, borderWidth: 1, borderColor: color.borderStrong },
+  btn: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   busy: { opacity: 0.6 },
-  btnText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
+  btnText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
   spinner: { marginTop: 24 },
   list: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
-  card: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 10 },
-  q: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  tally: { color: '#8a8fb0', fontSize: 13 },
+  card: { backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 10, borderWidth: 1, borderColor: color.border },
+  q: { color: color.text, fontSize: 16, fontWeight: '600' },
+  tally: { color: color.textFaint, fontSize: 13 },
   opts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  opt: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  optActive: { backgroundColor: '#7c9bff', borderColor: '#7c9bff' },
-  optText: { color: '#c4c8e0', fontSize: 14 },
-  optTextActive: { color: '#0f1220', fontWeight: '700' },
+  opt: { borderWidth: 1, borderColor: color.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  optActive: { backgroundColor: color.accent, borderColor: color.accent },
+  optText: { color: color.textMuted, fontSize: 14 },
+  optTextActive: { color: color.accentInk, fontWeight: '700' },
   close: { alignSelf: 'flex-start', marginTop: 2 },
-  closeText: { color: '#8a8fb0', fontSize: 13 },
-  empty: { color: '#8a8fb0', textAlign: 'center', marginTop: 24, fontSize: 15 },
-  err: { color: '#ff9a9a', fontSize: 14 },
+  closeText: { color: color.textFaint, fontSize: 13 },
+  empty: { color: color.textFaint, textAlign: 'center', marginTop: 24, fontSize: 15 },
+  err: { color: color.danger, fontSize: 14 },
 });

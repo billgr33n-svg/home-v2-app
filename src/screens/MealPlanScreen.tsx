@@ -17,6 +17,8 @@ import {
 import { type HouseholdMember } from '../api/members';
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers';
 
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
@@ -113,7 +115,7 @@ export function MealPlanScreen({ householdId }: { householdId: string }) {
         })}
       </View>
 
-      {mealsQ.isLoading ? <ActivityIndicator color="#fff" style={styles.spin} /> : null}
+      {mealsQ.isLoading ? <ActivityIndicator color={color.accent} style={styles.spin} /> : null}
       {mealsQ.isError ? <Text style={styles.err}>{msg(mealsQ.error)}</Text> : null}
 
       {day.slots.map((s: SlotView) => (
@@ -152,7 +154,7 @@ export function MealPlanScreen({ householdId }: { householdId: string }) {
               <TextInput
                 style={[styles.input, styles.grow]}
                 placeholder={`What's for ${s.label.toLowerCase()}?`}
-                placeholderTextColor="#6b6f8c"
+                placeholderTextColor={color.textFaint}
                 value={title}
                 onChangeText={setTitle}
                 autoFocus
@@ -186,39 +188,39 @@ const styles = StyleSheet.create({
   wrap: { padding: 20, paddingBottom: 40 },
   weekHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   arrow: { paddingHorizontal: 14, paddingVertical: 4 },
-  arrowText: { color: '#7c9bff', fontSize: 26, lineHeight: 28 },
-  weekLabel: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+  arrowText: { color: color.accent, fontSize: 26, lineHeight: 28 },
+  weekLabel: { color: color.text, fontSize: 16, fontWeight: '600' },
   strip: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
-  dayCell: { flex: 1, alignItems: 'center', paddingVertical: 10, minHeight: 64, borderRadius: 12, backgroundColor: '#161a2e' },
-  dayOn: { backgroundColor: '#7c9bff' },
-  dayToday: { borderWidth: 1, borderColor: '#3a3f60' },
-  dow: { color: '#8a8fb0', fontSize: 11, letterSpacing: 0.5 },
-  dowOn: { color: '#0f1220' },
-  dom: { color: '#e8eaf6', fontSize: 18, fontWeight: '700', marginTop: 2 },
-  domOn: { color: '#0f1220' },
+  dayCell: { flex: 1, alignItems: 'center', paddingVertical: 10, minHeight: 64, borderRadius: 12, backgroundColor: color.surface },
+  dayOn: { backgroundColor: color.accent },
+  dayToday: { borderWidth: 1, borderColor: color.border },
+  dow: { color: color.textFaint, fontSize: 11, letterSpacing: 0.5 },
+  dowOn: { color: color.accentInk },
+  dom: { color: color.text, fontSize: 18, fontWeight: '700', marginTop: 2 },
+  domOn: { color: color.accentInk },
   dots: { flexDirection: 'row', gap: 3, marginTop: 6 },
-  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#2a2f4a' },
-  dotOn: { backgroundColor: '#9fe0b0' },
-  slot: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, marginTop: 12 },
+  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: color.surfaceRaised },
+  dotOn: { backgroundColor: color.success },
+  slot: { backgroundColor: color.surface, borderRadius: 14, padding: 14, marginTop: 12 },
   slotHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  slotLabel: { color: '#8a8fb0', fontSize: 12, letterSpacing: 1.4, fontWeight: '700' },
-  oyo: { color: '#6b6f8c', fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
-  mealTitle: { color: '#ffffff', fontSize: 17, fontWeight: '600', marginTop: 8 },
-  cook: { color: '#a6abcc', fontSize: 13, marginTop: 3 },
-  plan: { color: '#7c9bff', fontSize: 15, marginTop: 10 },
+  slotLabel: { color: color.textFaint, fontSize: 12, letterSpacing: 1.4, fontWeight: '700' },
+  oyo: { color: color.textFaint, fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
+  mealTitle: { color: color.text, fontSize: 17, fontWeight: '600', marginTop: 8 },
+  cook: { color: color.textMuted, fontSize: 13, marginTop: 3 },
+  plan: { color: color.accent, fontSize: 15, marginTop: 10 },
   row: { flexDirection: 'row', gap: 8, marginTop: 10 },
   grow: { flex: 1 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16, minHeight: 48 },
-  add: { backgroundColor: '#7c9bff', borderRadius: 12, paddingHorizontal: 20, justifyContent: 'center' },
-  addText: { color: '#0f1220', fontWeight: '700' },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16, minHeight: 48, borderWidth: 1, borderColor: color.borderStrong },
+  add: { backgroundColor: color.accent, borderRadius: 12, paddingHorizontal: 20, justifyContent: 'center' },
+  addText: { color: color.accentInk, fontWeight: '700' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  chip: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
-  chipOn: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
-  chipText: { color: '#c4c8e0', fontSize: 13 },
-  chipTextOn: { color: '#ffffff', fontWeight: '600' },
-  chipDanger: { borderWidth: 1, borderColor: '#4a3350', borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
-  chipDangerText: { color: '#d99ac0', fontSize: 13 },
+  chip: { borderWidth: 1, borderColor: color.borderStrong, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
+  chipOn: { borderColor: color.accent, backgroundColor: color.accentSoft },
+  chipText: { color: color.textMuted, fontSize: 13 },
+  chipTextOn: { color: color.text, fontWeight: '600' },
+  chipDanger: { borderWidth: 1, borderColor: color.dangerSoft, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
+  chipDangerText: { color: color.dangerSoft, fontSize: 13 },
   spin: { marginTop: 16 },
-  footnote: { color: '#6b6f8c', fontSize: 12, marginTop: 18, lineHeight: 17 },
-  err: { color: '#ff9a9a', fontSize: 14, marginTop: 12 },
+  footnote: { color: color.textFaint, fontSize: 12, marginTop: 18, lineHeight: 17 },
+  err: { color: color.danger, fontSize: 14, marginTop: 12 },
 });

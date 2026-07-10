@@ -2,5 +2,6 @@
 module.exports = {
   root: true,
   extends: ['expo'],
-  ignorePatterns: ['/dist/*', '/node_modules/*', '/.expo/*'],
+  // supabase/functions is Deno, not RN — different globals and import syntax.
+  ignorePatterns: ['/dist/*', '/node_modules/*', '/.expo/*', '/supabase/functions/*'],
 };

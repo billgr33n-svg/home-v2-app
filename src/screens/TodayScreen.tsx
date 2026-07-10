@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { resolveMaintenanceIssue } from '../api/maintenance';
@@ -10,6 +10,10 @@ import type { Priority, TodayItem, TodayItemKind } from '../domain/today';
 import { type HouseholdMember } from '../api/members';
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers';
 import { useTodayFeed } from '../hooks/useToday';
+import { KitchenTodayCard } from './KitchenTodayCard';
+import { UseSoonCard } from './UseSoonCard';
+
+import { color } from '../theme';
 
 const KIND_LABEL: Record<TodayItemKind, string> = {
   ride_unassigned: 'Ride',
@@ -21,9 +25,9 @@ const KIND_LABEL: Record<TodayItemKind, string> = {
 };
 
 const PRIORITY_COLOR: Record<Priority, string> = {
-  P0: '#ff6b6b',
-  P1: '#ffb86b',
-  P2: '#7c9bff',
+  P0: color.danger,
+  P1: color.warning,
+  P2: color.accent,
 };
 
 // What "assign" means for each kind of Today item.
@@ -149,7 +153,7 @@ export function TodayScreen({ householdId }: { householdId: string }) {
   if (q.isLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={color.accent} />
       </View>
     );
   }
@@ -164,11 +168,19 @@ export function TodayScreen({ householdId }: { householdId: string }) {
       </View>
     );
   }
+  // Food that is about to die is still news on a day with no decisions, so the
+  // Use Soon card renders in the empty state too rather than hiding behind it.
   if (!q.data || q.data.length === 0) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.stateTitle}>All clear</Text>
-        <Text style={styles.stateBody}>No decisions or exceptions for today.</Text>
+      <View style={styles.wrap}>
+        <ScrollView contentContainerStyle={styles.list}>
+          <KitchenTodayCard householdId={householdId} />
+          <UseSoonCard householdId={householdId} />
+          <View style={styles.centeredInline}>
+            <Text style={styles.stateTitle}>All clear</Text>
+            <Text style={styles.stateBody}>No decisions or exceptions for today.</Text>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -178,8 +190,14 @@ export function TodayScreen({ householdId }: { householdId: string }) {
         data={q.data}
         keyExtractor={(i) => i.id}
         renderItem={renderItem}
+        ListHeaderComponent={
+          <>
+            <KitchenTodayCard householdId={householdId} />
+            <UseSoonCard householdId={householdId} />
+          </>
+        }
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} tintColor="#ffffff" />}
+        refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} tintColor={color.accent} />}
       />
       {error ? <Text style={styles.err}>{error}</Text> : null}
     </View>
@@ -189,29 +207,30 @@ export function TodayScreen({ householdId }: { householdId: string }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24 },
-  stateTitle: { color: '#ffffff', fontSize: 18, fontWeight: '600' },
-  stateBody: { color: '#8a8fb0', fontSize: 15, textAlign: 'center' },
-  retry: { marginTop: 12, backgroundColor: '#1a1e33', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
-  retryText: { color: '#c4c8e0', fontSize: 15, fontWeight: '600' },
+  centeredInline: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 48 },
+  stateTitle: { color: color.text, fontSize: 18, fontWeight: '600' },
+  stateBody: { color: color.textFaint, fontSize: 15, textAlign: 'center' },
+  retry: { marginTop: 12, backgroundColor: color.surfaceInput, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
+  retryText: { color: color.textMuted, fontSize: 15, fontWeight: '600' },
   list: { padding: 20, gap: 10 },
-  item: { flexDirection: 'row', backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 12 },
+  item: { flexDirection: 'row', backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 12, borderWidth: 1, borderColor: color.border },
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
   itemBody: { flex: 1, gap: 2 },
   itemHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  kind: { color: '#8a8fb0', fontSize: 12, letterSpacing: 1 },
-  decision: { color: '#ffb86b', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  tapHint: { color: '#6b6f8c', fontSize: 11 },
-  itemTitle: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  itemDetail: { color: '#a6abcc', fontSize: 14 },
+  kind: { color: color.textFaint, fontSize: 12, letterSpacing: 1 },
+  decision: { color: color.warning, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  tapHint: { color: color.textFaint, fontSize: 11 },
+  itemTitle: { color: color.text, fontSize: 16, fontWeight: '600' },
+  itemDetail: { color: color.textMuted, fontSize: 14 },
   actions: { marginTop: 10, gap: 8 },
-  actionLabel: { color: '#8a8fb0', fontSize: 12, letterSpacing: 1 },
+  actionLabel: { color: color.textFaint, fontSize: 12, letterSpacing: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { borderWidth: 1, borderColor: '#3a3f60', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  pillActive: { backgroundColor: '#7c9bff', borderColor: '#7c9bff' },
-  pillText: { color: '#c4c8e0', fontSize: 14 },
-  pillTextActive: { color: '#0f1220', fontWeight: '700' },
-  clearText: { color: '#ff9a9a', fontSize: 14 },
-  finishBtn: { alignSelf: 'flex-start', backgroundColor: '#7c9bff', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
-  finishText: { color: '#0f1220', fontWeight: '700' },
-  err: { color: '#ff9a9a', textAlign: 'center', padding: 16, fontSize: 14 },
+  pill: { borderWidth: 1, borderColor: color.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  pillActive: { backgroundColor: color.accent, borderColor: color.accent },
+  pillText: { color: color.textMuted, fontSize: 14 },
+  pillTextActive: { color: color.accentInk, fontWeight: '700' },
+  clearText: { color: color.danger, fontSize: 14 },
+  finishBtn: { alignSelf: 'flex-start', backgroundColor: color.accent, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
+  finishText: { color: color.accentInk, fontWeight: '700' },
+  err: { color: color.danger, textAlign: 'center', padding: 16, fontSize: 14 },
 });

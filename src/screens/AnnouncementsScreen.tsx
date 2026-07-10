@@ -5,6 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createAnnouncement, type AnnouncementRow } from '../api/announcements';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
@@ -46,14 +48,14 @@ export function AnnouncementsScreen({ householdId }: { householdId: string }) {
         <TextInput
           style={styles.input}
           placeholder="Announcement title"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={title}
           onChangeText={setTitle}
         />
         <TextInput
           style={[styles.input, styles.multiline]}
           placeholder="Details (optional)"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={body}
           onChangeText={setBody}
           multiline
@@ -65,7 +67,7 @@ export function AnnouncementsScreen({ householdId }: { householdId: string }) {
       </View>
 
       {q.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spinner} />
+        <ActivityIndicator color={color.accent} style={styles.spinner} />
       ) : q.isError ? (
         <Text style={styles.err}>{msg(q.error)}</Text>
       ) : q.data && q.data.length > 0 ? (
@@ -85,16 +87,16 @@ export function AnnouncementsScreen({ householdId }: { householdId: string }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   composer: { padding: 20, gap: 10 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, borderWidth: 1, borderColor: color.borderStrong },
   multiline: { minHeight: 60, textAlignVertical: 'top' },
-  btn: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  btn: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   busy: { opacity: 0.6 },
-  btnText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
+  btnText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
   spinner: { marginTop: 24 },
   list: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
-  card: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 6 },
-  title: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  body: { color: '#a6abcc', fontSize: 14, lineHeight: 20 },
-  empty: { color: '#8a8fb0', textAlign: 'center', marginTop: 24, fontSize: 15 },
-  err: { color: '#ff9a9a', fontSize: 14 },
+  card: { backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 6, borderWidth: 1, borderColor: color.border },
+  title: { color: color.text, fontSize: 16, fontWeight: '600' },
+  body: { color: color.textMuted, fontSize: 14, lineHeight: 20 },
+  empty: { color: color.textFaint, textAlign: 'center', marginTop: 24, fontSize: 15 },
+  err: { color: color.danger, fontSize: 14 },
 });

@@ -50,7 +50,7 @@ export function suggestionsByBrand(
 export async function fetchShoppingList(householdId: string): Promise<ShoppingList> {
   const { data, error } = await supabase
     .from('shopping_items')
-    .select('id,name,preferred_brand,quantity,unit,store,state')
+    .select('id,name,preferred_brand,quantity,unit,store,state,stocked_at,stock_note')
     .eq('household_id', householdId)
     .is('deleted_at', null)
     .order('created_at', { ascending: true });
@@ -63,6 +63,8 @@ export async function fetchShoppingList(householdId: string): Promise<ShoppingLi
     unit: r.unit,
     store: r.store,
     state: r.state,
+    stockedAt: r.stocked_at,
+    stockNote: r.stock_note,
   }));
   return buildShoppingList(raw);
 }

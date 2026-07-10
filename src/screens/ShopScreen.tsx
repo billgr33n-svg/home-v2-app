@@ -9,6 +9,8 @@ import { useInventory } from '../hooks/useInventory';
 import { useItemSuggestions } from '../hooks/useItemSuggestions';
 import { useShoppingList } from '../hooks/useShopping';
 
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
@@ -131,7 +133,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
         <TextInput
           style={styles.input}
           placeholder="Item (e.g., Milk)"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={name}
           onChangeText={setName}
         />
@@ -164,14 +166,14 @@ export function ShopScreen({ householdId }: { householdId: string }) {
           <TextInput
             style={[styles.input, styles.brandField]}
             placeholder="Brand (optional)"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={brand}
             onChangeText={setBrand}
           />
           <TextInput
             style={[styles.input, styles.qtyField]}
             placeholder="Qty"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={qty}
             onChangeText={setQty}
             keyboardType="numeric"
@@ -179,7 +181,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
           <TextInput
             style={[styles.input, styles.unitField]}
             placeholder="Size/unit"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={unit}
             onChangeText={setUnit}
           />
@@ -191,7 +193,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
 
       <Text style={styles.section}>Shopping list</Text>
       {shop.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spin} />
+        <ActivityIndicator color={color.accent} style={styles.spin} />
       ) : shop.isError ? (
         <Text style={styles.err}>{msg(shop.error)}</Text>
       ) : shop.data && shop.data.open.length + shop.data.done.length > 0 ? (
@@ -213,6 +215,8 @@ export function ShopScreen({ householdId }: { householdId: string }) {
               </View>
               <View style={styles.rowBody}>
                 <Text style={[styles.rowTitle, styles.doneTitle]}>{it.name}</Text>
+                {/* Bought but not stocked. Say why, or it looks like the trigger failed. */}
+                {it.stockWarning ? <Text style={styles.stockWarn}>{it.stockWarning}</Text> : null}
               </View>
             </Pressable>
           ))}
@@ -223,7 +227,7 @@ export function ShopScreen({ householdId }: { householdId: string }) {
 
       <Text style={styles.section}>Needs replenishing</Text>
       {inv.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spin} />
+        <ActivityIndicator color={color.accent} style={styles.spin} />
       ) : inv.isError ? (
         <Text style={styles.err}>{msg(inv.error)}</Text>
       ) : (
@@ -305,39 +309,40 @@ const styles = StyleSheet.create({
   brandField: { flex: 2 },
   qtyField: { flex: 1 },
   unitField: { flex: 1.4 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, minHeight: 48 },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, minHeight: 48, borderWidth: 1, borderColor: color.borderStrong },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, minHeight: 44, justifyContent: 'center' },
-  chipActive: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
-  chipStore: { color: '#7c9bff', fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 2 },
-  chipName: { color: '#e8eaf6', fontSize: 14, fontWeight: '600' },
-  chipText: { color: '#9aa0c0', fontSize: 12, marginTop: 1 },
-  chipTextActive: { color: '#ffffff' },
-  clearStore: { color: '#8a8fb0', fontSize: 12, marginTop: 2 },
-  add: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 15, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  chip: { borderWidth: 1, borderColor: color.borderStrong, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, minHeight: 44, justifyContent: 'center' },
+  chipActive: { borderColor: color.accent, backgroundColor: color.accentSoft },
+  chipStore: { color: color.accent, fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 2 },
+  chipName: { color: color.text, fontSize: 14, fontWeight: '600' },
+  chipText: { color: color.textMuted, fontSize: 12, marginTop: 1 },
+  chipTextActive: { color: color.text },
+  clearStore: { color: color.textFaint, fontSize: 12, marginTop: 2 },
+  add: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 15, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   busy: { opacity: 0.6 },
-  addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
-  section: { color: '#8a8fb0', fontSize: 12, letterSpacing: 1.5, marginTop: 18, marginBottom: 8 },
-  subhead: { color: '#6b6f8c', fontSize: 12, marginTop: 10, marginBottom: 4 },
+  addText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
+  section: { color: color.textFaint, fontSize: 12, letterSpacing: 1.5, marginTop: 18, marginBottom: 8 },
+  subhead: { color: color.textFaint, fontSize: 12, marginTop: 10, marginBottom: 4 },
   spin: { marginTop: 16 },
-  row2: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161a2e', borderRadius: 12, padding: 12, marginBottom: 8, gap: 12 },
-  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#3a3f60' },
-  checkboxDone: { backgroundColor: '#7c9bff', borderColor: '#7c9bff', alignItems: 'center', justifyContent: 'center' },
-  check: { color: '#0f1220', fontSize: 14, fontWeight: '700' },
+  row2: { flexDirection: 'row', alignItems: 'center', backgroundColor: color.surface, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: color.border },
+  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: color.border },
+  checkboxDone: { backgroundColor: color.accent, borderColor: color.accent, alignItems: 'center', justifyContent: 'center' },
+  check: { color: color.accentInk, fontSize: 14, fontWeight: '700' },
   rowBody: { flex: 1 },
-  rowTitle: { color: '#ffffff', fontSize: 15, fontWeight: '600' },
-  doneTitle: { color: '#6b6f8c', textDecorationLine: 'line-through' },
-  rowDetail: { color: '#a6abcc', fontSize: 13, marginTop: 2 },
+  rowTitle: { color: color.text, fontSize: 15, fontWeight: '600' },
+  doneTitle: { color: color.textFaint, textDecorationLine: 'line-through' },
+  stockWarn: { color: color.warning, fontSize: 12, marginTop: 2 },
+  rowDetail: { color: color.textMuted, fontSize: 13, marginTop: 2 },
   levelWrap: { alignItems: 'flex-end', gap: 4 },
-  level: { color: '#c4c8e0', fontSize: 14 },
-  restock: { color: '#ffb86b', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  reorder: { color: '#9fe0b0', fontSize: 11, marginTop: 2 },
-  empty: { color: '#8a8fb0', fontSize: 15 },
-  rowMeta: { color: '#6b6f8c', fontSize: 12, marginTop: 3 },
-  addSmall: { backgroundColor: '#2a2f4a', borderRadius: 10, paddingHorizontal: 18, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  addSmallText: { color: '#e8eaf6', fontWeight: '600' },
-  addAll: { borderWidth: 1, borderColor: '#7c9bff', borderRadius: 12, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
-  addAllText: { color: '#7c9bff', fontWeight: '700' },
-  untracked: { color: '#6b6f8c', fontSize: 12, lineHeight: 18, marginTop: 16 },
-  err: { color: '#ff9a9a', fontSize: 14, marginTop: 12 },
+  level: { color: color.textMuted, fontSize: 14 },
+  restock: { color: color.warning, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  reorder: { color: color.success, fontSize: 11, marginTop: 2 },
+  empty: { color: color.textFaint, fontSize: 15 },
+  rowMeta: { color: color.textFaint, fontSize: 12, marginTop: 3 },
+  addSmall: { backgroundColor: color.surfaceRaised, borderRadius: 10, paddingHorizontal: 18, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  addSmallText: { color: color.text, fontWeight: '600' },
+  addAll: { borderWidth: 1, borderColor: color.accent, borderRadius: 12, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  addAllText: { color: color.accent, fontWeight: '700' },
+  untracked: { color: color.textFaint, fontSize: 12, lineHeight: 18, marginTop: 16 },
+  err: { color: color.danger, fontSize: 14, marginTop: 12 },
 });

@@ -26,7 +26,7 @@ function friendlyError(e: unknown): string {
 }
 
 export function AuthScreen() {
-  const { signIn } = useAuth();
+  const { signIn, expired } = useAuth();
   const [member, setMember] = useState<Member | null>(null);
   const [pin, setPin] = useState('');
   const pinRef = useRef('');
@@ -95,10 +95,21 @@ export function AuthScreen() {
   if (!member) {
     return (
       <SafeAreaView style={styles.safe}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <View style={styles.container}>
           <Text style={styles.kicker}>GREEN HOUSEHOLD</Text>
           <Text style={styles.title}>Who's this?</Text>
+          {/*
+            Say what happened. Silently landing on the sign-in screen reads as a
+            bug; "you were signed out" reads as the system working.
+          */}
+          {expired ? (
+            <View style={styles.notice}>
+              <Text style={styles.noticeText}>
+                You were signed out because the session expired. Your data is safe.
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.people}>
             {HOUSEHOLD_MEMBERS.map((m) => (
               <Pressable
@@ -124,7 +135,7 @@ export function AuthScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <View style={styles.container}>
         <Pressable
           onPress={() => {
@@ -178,6 +189,16 @@ const styles = StyleSheet.create({
   title: { ...t.title, fontSize: 28 },
   subtitle: { color: color.textMuted, fontSize: 15, marginTop: 6 },
 
+  notice: {
+    marginTop: space.lg,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: color.warningSoft,
+    borderWidth: 1,
+    borderColor: color.warning,
+  },
+  noticeText: { color: color.text, fontSize: 14 },
+
   people: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, marginTop: space.xl },
   person: {
     flexGrow: 1,
@@ -222,6 +243,8 @@ const styles = StyleSheet.create({
     minHeight: 64,
     borderRadius: radius.md,
     backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: color.border,
     alignItems: 'center',
     justifyContent: 'center',
   },

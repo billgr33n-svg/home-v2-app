@@ -6,14 +6,16 @@ import { completeMaintenance } from '../api/maintenance';
 import type { MaintenanceStatus, MaintenanceView } from '../domain/maintenance';
 import { useMaintenance } from '../hooks/useMaintenance';
 
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
 
 const STATUS_COLOR: Record<MaintenanceStatus, string> = {
-  overdue: '#ff6b6b',
-  due_soon: '#ffb86b',
-  ok: '#7c9bff',
+  overdue: color.danger,
+  due_soon: color.warning,
+  ok: color.accent,
 };
 
 export function AssetsScreen({ householdId }: { householdId: string }) {
@@ -53,7 +55,7 @@ export function AssetsScreen({ householdId }: { householdId: string }) {
   return (
     <View style={styles.wrap}>
       {q.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spin} />
+        <ActivityIndicator color={color.accent} style={styles.spin} />
       ) : q.isError ? (
         <Text style={styles.err}>{msg(q.error)}</Text>
       ) : q.data && q.data.length > 0 ? (
@@ -70,13 +72,13 @@ const styles = StyleSheet.create({
   wrap: { flex: 1 },
   spin: { marginTop: 24 },
   list: { padding: 20, gap: 10 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 12, borderWidth: 1, borderColor: color.border },
   dot: { width: 10, height: 10, borderRadius: 5 },
   body: { flex: 1 },
-  title: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  meta: { color: '#a6abcc', fontSize: 14, marginTop: 2 },
-  btn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3a3f60', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
-  btnText: { color: '#c4c8e0', fontWeight: '600', fontSize: 13 },
-  empty: { color: '#8a8fb0', textAlign: 'center', marginTop: 32, fontSize: 15 },
-  err: { color: '#ff9a9a', textAlign: 'center', padding: 16, fontSize: 14 },
+  title: { color: color.text, fontSize: 16, fontWeight: '600' },
+  meta: { color: color.textMuted, fontSize: 14, marginTop: 2 },
+  btn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: color.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
+  btnText: { color: color.textMuted, fontWeight: '600', fontSize: 13 },
+  empty: { color: color.textFaint, textAlign: 'center', marginTop: 32, fontSize: 15 },
+  err: { color: color.danger, textAlign: 'center', padding: 16, fontSize: 14 },
 });

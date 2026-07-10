@@ -14,6 +14,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { acceptInvite, createHousehold } from '../api/households';
 import { useAuth } from '../auth/AuthProvider';
 
+import { color } from '../theme';
+
 export function OnboardingScreen() {
   const qc = useQueryClient();
   const { signOut } = useAuth();
@@ -39,7 +41,7 @@ export function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <View style={styles.container}>
         <Text style={styles.kicker}>HOME V2</Text>
         <Text style={styles.title}>Set up your household</Text>
@@ -49,7 +51,7 @@ export function OnboardingScreen() {
           <TextInput
             style={styles.input}
             placeholder="Household name"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={name}
             onChangeText={setName}
           />
@@ -67,7 +69,7 @@ export function OnboardingScreen() {
           <TextInput
             style={styles.input}
             placeholder="Invite code"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             autoCapitalize="none"
             value={token}
             onChangeText={setToken}
@@ -81,7 +83,7 @@ export function OnboardingScreen() {
           </Pressable>
         </View>
 
-        {busy && <ActivityIndicator color="#fff" />}
+        {busy && <ActivityIndicator color={color.accent} />}
         {error && <Text style={styles.error}>{error}</Text>}
 
         <Pressable onPress={signOut}>
@@ -93,25 +95,25 @@ export function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0f1220' },
+  safe: { flex: 1, backgroundColor: color.bg },
   container: { flex: 1, paddingHorizontal: 24, justifyContent: 'center', gap: 16 },
-  kicker: { color: '#8a8fb0', fontSize: 13, letterSpacing: 2 },
-  title: { color: '#ffffff', fontSize: 28, fontWeight: '700', marginBottom: 4 },
-  card: { backgroundColor: '#161a2e', borderRadius: 16, padding: 16, gap: 12 },
-  cardTitle: { color: '#c4c8e0', fontSize: 16, fontWeight: '600' },
+  kicker: { color: color.textFaint, fontSize: 13, letterSpacing: 2 },
+  title: { color: color.text, fontSize: 28, fontWeight: '700', marginBottom: 4 },
+  card: { backgroundColor: color.surface, borderRadius: 16, padding: 16, gap: 12, borderWidth: 1, borderColor: color.border },
+  cardTitle: { color: color.textMuted, fontSize: 16, fontWeight: '600' },
   input: {
-    backgroundColor: '#1a1e33',
-    color: '#ffffff',
+    backgroundColor: color.surfaceInput,
+    color: color.text,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
   },
-  button: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  buttonAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3a3f60' },
+  button: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  buttonAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: color.border },
   busy: { opacity: 0.6 },
-  buttonText: { color: '#0f1220', fontSize: 16, fontWeight: '700' },
-  buttonAltText: { color: '#c4c8e0' },
-  error: { color: '#ff9a9a', fontSize: 14 },
-  signout: { color: '#6b6f8c', fontSize: 14, textAlign: 'center', marginTop: 8 },
+  buttonText: { color: color.accentInk, fontSize: 16, fontWeight: '700' },
+  buttonAltText: { color: color.textMuted },
+  error: { color: color.danger, fontSize: 14 },
+  signout: { color: color.textFaint, fontSize: 14, textAlign: 'center', marginTop: 8 },
 });

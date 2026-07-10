@@ -6,6 +6,8 @@ import { claimRide, postRideUpdate, requestRide } from '../api/rides';
 import { useOpenRides } from '../hooks/useRides';
 import type { RideView } from '../domain/rides';
 
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
@@ -100,7 +102,7 @@ export function RidesScreen({ householdId }: { householdId: string }) {
           <TextInput
             style={styles.input}
             placeholder="What's the problem?"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={note}
             onChangeText={setNote}
           />
@@ -118,14 +120,14 @@ export function RidesScreen({ householdId }: { householdId: string }) {
         <TextInput
           style={styles.input}
           placeholder="Where to? (destination)"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={dest}
           onChangeText={setDest}
         />
         <TextInput
           style={styles.input}
           placeholder="Pickup (optional, defaults to Home)"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={pickup}
           onChangeText={setPickup}
         />
@@ -135,7 +137,7 @@ export function RidesScreen({ householdId }: { householdId: string }) {
       </View>
 
       {q.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spinner} />
+        <ActivityIndicator color={color.accent} style={styles.spinner} />
       ) : q.isError ? (
         <Text style={styles.err}>{msg(q.error)}</Text>
       ) : q.data && q.data.length > 0 ? (
@@ -156,22 +158,22 @@ export function RidesScreen({ householdId }: { householdId: string }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   composer: { padding: 20, paddingBottom: 8, gap: 10 },
-  addBtn: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
-  addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
+  addBtn: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  addText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
   busy: { opacity: 0.6 },
   spinner: { marginTop: 24 },
   list: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
-  card: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 8 },
-  cardAlert: { borderWidth: 1, borderColor: '#ff6b6b' },
-  dest: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  meta: { color: '#a6abcc', fontSize: 14 },
+  card: { backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 8, borderWidth: 1, borderColor: color.border },
+  cardAlert: { borderWidth: 1, borderColor: color.danger },
+  dest: { color: color.text, fontSize: 16, fontWeight: '600' },
+  meta: { color: color.textMuted, fontSize: 14 },
   row: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  btn: { backgroundColor: '#7c9bff', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
-  btnText: { color: '#0f1220', fontWeight: '700' },
-  btnAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3a3f60' },
-  btnAltText: { color: '#c4c8e0', fontWeight: '600' },
+  btn: { backgroundColor: color.accent, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
+  btnText: { color: color.accentInk, fontWeight: '700' },
+  btnAlt: { backgroundColor: 'transparent', borderWidth: 1, borderColor: color.border },
+  btnAltText: { color: color.textMuted, fontWeight: '600' },
   escalate: { gap: 8, marginTop: 4 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
-  empty: { color: '#8a8fb0', textAlign: 'center', marginTop: 32, fontSize: 15 },
-  err: { color: '#ff9a9a', textAlign: 'center', padding: 16, fontSize: 14 },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: color.borderStrong },
+  empty: { color: color.textFaint, textAlign: 'center', marginTop: 32, fontSize: 15 },
+  err: { color: color.danger, textAlign: 'center', padding: 16, fontSize: 14 },
 });

@@ -7,6 +7,8 @@ import { AuthScreen } from '../screens/AuthScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { MainScreen } from './MainScreen';
 
+import { color } from '../theme';
+
 // Session-driven gating: no session -> auth; signed in but no active household ->
 // onboarding; otherwise -> Today for the first active household.
 export function Root() {
@@ -44,12 +46,12 @@ function AuthedRoot() {
 function Loading() {
   return (
     <View style={styles.centered}>
-      <ActivityIndicator color="#ffffff" />
+      <ActivityIndicator color={color.accent} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  centered: { flex: 1, backgroundColor: '#0f1220', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  err: { color: '#ff9a9a', fontSize: 16, textAlign: 'center' },
+  centered: { flex: 1, backgroundColor: color.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  err: { color: color.danger, fontSize: 16, textAlign: 'center' },
 });

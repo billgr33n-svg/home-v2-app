@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { useAuth } from '../auth/AuthProvider';
@@ -7,40 +7,54 @@ import { AnnouncementsScreen } from '../screens/AnnouncementsScreen';
 import { AssetsScreen } from '../screens/AssetsScreen';
 import { EventsScreen } from '../screens/EventsScreen';
 import { InventoryScreen } from '../screens/InventoryScreen';
+import { KitchenScreen } from '../screens/KitchenScreen';
 import { MealsTab } from '../screens/MealsTab';
 import { PollsScreen } from '../screens/PollsScreen';
 import { RidesScreen } from '../screens/RidesScreen';
 import { ShopScreen } from '../screens/ShopScreen';
 import { TasksScreen } from '../screens/TasksScreen';
 import { TodayScreen } from '../screens/TodayScreen';
-import { color, CONTENT_MAX_WIDTH, radius, space, TOUCH, type as t } from '../theme';
+import { WasteScreen } from '../screens/WasteScreen';
+import { cardBase, color, CONTENT_MAX_WIDTH, radius, shadow, space, TOUCH, type as t } from '../theme';
+import {
+  BAR_SECTIONS,
+  destinationFor,
+  landingFor,
+  sectionFor,
+  type ScreenKey,
+  type Section,
+  type SectionKey,
+} from './sections';
 
-// Scan is not a destination — it's an action on the inventory, so it lives
-// inside that screen rather than taking a permanent slot down here.
-type Tab =
-  | 'today' | 'events' | 'rides' | 'meals' | 'announce'
-  | 'polls' | 'shop' | 'inventory' | 'tasks' | 'upkeep';
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'today', label: 'Today' },
-  { key: 'events', label: 'Events' },
-  { key: 'rides', label: 'Rides' },
-  { key: 'meals', label: 'Meals' },
-  { key: 'announce', label: 'News' },
-  { key: 'polls', label: 'Polls' },
-  { key: 'shop', label: 'Shop' },
-  { key: 'inventory', label: 'Inventory' },
-  { key: 'tasks', label: 'Tasks' },
-  { key: 'upkeep', label: 'Upkeep' },
-];
-
+/**
+ * Four sections in the bar, a More sheet for everything else, and a landing list
+ * inside any section that holds more than one destination. See ./sections.ts for
+ * why, and adr/ADR-0012.
+ *
+ * State is (section, screen | null). A null screen means "show this section's
+ * landing list". Tapping the section you are already in walks you back out to
+ * that list, which is the behaviour every native tab bar has trained people to
+ * expect.
+ */
 export function MainScreen(props: { householdId: string; householdName: string; membershipId: string }) {
   const { signOut } = useAuth();
-  const [tab, setTab] = useState<Tab>('today');
+  const [section, setSection] = useState<SectionKey>('today');
+  const [screen, setScreen] = useState<ScreenKey | null>('today');
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const openSection = (s: Section) => {
+    setMoreOpen(false);
+    setSection(s.key);
+    setScreen(landingFor(s));
+  };
+
+  const current = screen ? destinationFor(screen) : undefined;
+  const activeSection = screen ? sectionFor(screen) : BAR_SECTIONS.find((s) => s.key === section);
+  const heading = current?.label ?? activeSection?.label ?? 'Home';
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <View style={styles.headerOuter}>
         <View style={styles.column}>
@@ -49,55 +63,129 @@ export function MainScreen(props: { householdId: string; householdName: string; 
               <Text style={styles.kicker} numberOfLines={1}>
                 {props.householdName.toUpperCase()}
               </Text>
-              <Text style={styles.title}>{TABS.find((x) => x.key === tab)?.label}</Text>
+              <Text style={styles.title}>{heading}</Text>
             </View>
             <Pressable onPress={signOut} hitSlop={12} style={styles.signoutHit}>
               <Text style={styles.signout}>Sign out</Text>
             </Pressable>
           </View>
+
+          {/* Inside a multi-destination section, a sub-bar beats a back button. */}
+          {activeSection && activeSection.destinations.length > 1 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subbar}>
+              {activeSection.destinations.map((d) => {
+                const on = screen === d.key;
+                return (
+                  <Pressable key={d.key} onPress={() => setScreen(d.key)} style={[styles.pill, on && styles.pillOn]}>
+                    <Text style={[styles.pillText, on && styles.pillTextOn]}>{d.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
         </View>
       </View>
 
       <View style={styles.body}>
         <View style={styles.column}>
-          {tab === 'today' && <TodayScreen householdId={props.householdId} />}
-          {tab === 'events' && <EventsScreen householdId={props.householdId} />}
-          {tab === 'rides' && <RidesScreen householdId={props.householdId} />}
-          {tab === 'meals' && <MealsTab householdId={props.householdId} />}
-          {tab === 'announce' && <AnnouncementsScreen householdId={props.householdId} />}
-          {tab === 'polls' && <PollsScreen householdId={props.householdId} />}
-          {tab === 'shop' && <ShopScreen householdId={props.householdId} />}
-          {tab === 'inventory' && <InventoryScreen householdId={props.householdId} />}
-          {tab === 'tasks' && <TasksScreen householdId={props.householdId} />}
-          {tab === 'upkeep' && <AssetsScreen householdId={props.householdId} />}
+          {screen === null && activeSection ? (
+            <SectionLanding section={activeSection} onPick={setScreen} />
+          ) : null}
+          {screen === 'today' && <TodayScreen householdId={props.householdId} />}
+          {screen === 'meals' && <MealsTab householdId={props.householdId} />}
+          {screen === 'shop' && <ShopScreen householdId={props.householdId} />}
+          {screen === 'inventory' && <InventoryScreen householdId={props.householdId} />}
+          {screen === 'waste' && <WasteScreen householdId={props.householdId} />}
+          {screen === 'kitchen' && <KitchenScreen householdId={props.householdId} />}
+          {screen === 'tasks' && <TasksScreen householdId={props.householdId} />}
+          {screen === 'upkeep' && <AssetsScreen householdId={props.householdId} />}
+          {screen === 'events' && <EventsScreen householdId={props.householdId} />}
+          {screen === 'announce' && <AnnouncementsScreen householdId={props.householdId} />}
+          {screen === 'polls' && <PollsScreen householdId={props.householdId} />}
+          {screen === 'rides' && <RidesScreen householdId={props.householdId} />}
         </View>
       </View>
 
       {/*
-        Ten tabs need ~940px to sit side by side. An iPhone gives 390. Squeezing
-        them yields 35px targets — under the 44pt minimum and unusable. So the
-        bar scrolls horizontally and every tab keeps a real target.
+        Five slots at 20% each. No horizontal scroll, no hidden destinations, and
+        every target clears 44pt on a 320px phone (64px per slot).
       */}
       <View style={styles.tabbarOuter}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabbar}
-        >
-          {TABS.map((x) => {
-            const active = tab === x.key;
+        <View style={styles.tabbar}>
+          {BAR_SECTIONS.map((s) => {
+            const active = !moreOpen && activeSection?.key === s.key;
             return (
-              <Pressable key={x.key} style={styles.tab} onPress={() => setTab(x.key)}>
+              <Pressable key={s.key} style={styles.tab} onPress={() => openSection(s)} accessibilityRole="tab">
+                <View style={[styles.dot, active && styles.dotOn]} />
                 <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={1}>
-                  {x.label}
+                  {s.label}
                 </Text>
-                <View style={[styles.indicator, active && styles.indicatorOn]} />
               </Pressable>
             );
           })}
+          <Pressable style={styles.tab} onPress={() => setMoreOpen(true)} accessibilityRole="button">
+            <View style={[styles.dot, moreOpen && styles.dotOn]} />
+            <Text style={[styles.tabText, moreOpen && styles.tabTextActive]}>More</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <MoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        onPick={(k) => {
+          setMoreOpen(false);
+          const s = sectionFor(k);
+          if (s) setSection(s.key);
+          setScreen(k);
+        }}
+      />
+    </SafeAreaView>
+  );
+}
+
+function SectionLanding(props: { section: Section; onPick: (k: ScreenKey) => void }) {
+  return (
+    <ScrollView contentContainerStyle={styles.landing}>
+      {props.section.destinations.map((d) => (
+        <Pressable key={d.key} style={styles.landingRow} onPress={() => props.onPick(d.key)}>
+          <View style={styles.landingText}>
+            <Text style={styles.landingTitle}>{d.label}</Text>
+            <Text style={styles.landingBlurb}>{d.blurb}</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
+/**
+ * Everything, flat, in one place. The bar is for the things you reach for; this
+ * is for the thing you are looking for. New domains land here before they earn a
+ * section.
+ */
+function MoreSheet(props: { open: boolean; onClose: () => void; onPick: (k: ScreenKey) => void }) {
+  return (
+    <Modal visible={props.open} animationType="slide" transparent onRequestClose={props.onClose}>
+      <Pressable style={styles.scrim} onPress={props.onClose} accessibilityLabel="Close" />
+      <View style={styles.sheet}>
+        <View style={styles.grabber} />
+        <ScrollView contentContainerStyle={styles.sheetBody}>
+          {BAR_SECTIONS.filter((s) => s.key !== 'today').map((s) => (
+            <View key={s.key} style={styles.sheetGroup}>
+              <Text style={styles.sheetSection}>{s.label.toUpperCase()}</Text>
+              {s.destinations.map((d) => (
+                <Pressable key={d.key} style={styles.sheetRow} onPress={() => props.onPick(d.key)}>
+                  <Text style={styles.sheetRowTitle}>{d.label}</Text>
+                  <Text style={styles.sheetRowBlurb}>{d.blurb}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ))}
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </Modal>
   );
 }
 
@@ -106,7 +194,7 @@ const styles = StyleSheet.create({
 
   // Centre the content column on wide screens instead of stretching chips to 1400px.
   column: { width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center', flex: 1 },
-  headerOuter: { width: '100%' },
+  headerOuter: { width: '100%', backgroundColor: color.bg },
 
   header: {
     paddingHorizontal: space.xl,
@@ -122,31 +210,85 @@ const styles = StyleSheet.create({
   signoutHit: { minHeight: TOUCH, justifyContent: 'center', paddingLeft: space.md },
   signout: { color: color.textFaint, fontSize: 14 },
 
+  subbar: { paddingHorizontal: space.xl, paddingBottom: space.md, gap: space.sm },
+  pill: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: color.border,
+    backgroundColor: color.surface,
+  },
+  pillOn: { backgroundColor: color.accentSoft, borderColor: color.accent },
+  pillText: { color: color.textMuted, fontSize: 14, fontWeight: '600' },
+  pillTextOn: { color: color.accent },
+
   body: { flex: 1, width: '100%' },
 
+  landing: { padding: space.xl, gap: space.md },
+  landingRow: {
+    ...cardBase,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 68,
+  },
+  landingText: { flex: 1, gap: 2 },
+  landingTitle: { ...t.heading },
+  landingBlurb: { ...t.detail },
+  chevron: { color: color.textFaint, fontSize: 26, paddingLeft: space.md },
+
   tabbarOuter: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     borderTopColor: color.border,
     backgroundColor: color.surface,
-    // Keep clear of the iPhone home indicator.
     paddingBottom: Platform.OS === 'web' ? space.xs : space.md,
   },
-  tabbar: { paddingHorizontal: space.sm },
+  tabbar: {
+    flexDirection: 'row',
+    width: '100%',
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
+    paddingHorizontal: space.xs,
+  },
   tab: {
-    minWidth: 80,
+    flex: 1,
     minHeight: TOUCH + 8,
-    paddingHorizontal: space.md,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
   },
-  tabText: { color: color.textFaint, fontSize: 13, fontWeight: '600' },
-  tabTextActive: { color: color.text },
-  indicator: {
-    height: 3,
-    width: 22,
-    borderRadius: radius.sm,
-    marginTop: 6,
-    backgroundColor: 'transparent',
+  dot: { height: 5, width: 5, borderRadius: 3, backgroundColor: 'transparent' },
+  dotOn: { backgroundColor: color.accent },
+  tabText: { color: color.textFaint, fontSize: 12, fontWeight: '600' },
+  tabTextActive: { color: color.accent },
+
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(36, 31, 27, 0.35)' },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    maxHeight: '78%',
+    backgroundColor: color.bg,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    borderTopWidth: 1,
+    borderColor: color.border,
+    ...shadow.raised,
   },
-  indicatorOn: { backgroundColor: color.accent },
+  grabber: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: color.borderStrong,
+    marginTop: space.md,
+  },
+  sheetBody: { padding: space.xl, gap: space.xl },
+  sheetGroup: { gap: space.sm },
+  sheetSection: { ...t.section, marginBottom: space.xs },
+  sheetRow: { ...cardBase, minHeight: 62, justifyContent: 'center', gap: 2 },
+  sheetRowTitle: { ...t.heading },
+  sheetRowBlurb: { ...t.detail },
 });

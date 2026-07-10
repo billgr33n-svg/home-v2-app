@@ -5,6 +5,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createEvent, type EventView } from '../api/events';
 import { useEvents } from '../hooks/useEvents';
 
+import { CalendarConnect } from './CalendarConnect';
+
+import { color } from '../theme';
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
@@ -74,11 +78,14 @@ export function EventsScreen({ householdId }: { householdId: string }) {
 
   return (
     <View style={styles.wrap}>
+      <View style={styles.connect}>
+        <CalendarConnect />
+      </View>
       <View style={styles.composer}>
         <TextInput
           style={styles.input}
           placeholder="Event (e.g., Cora soccer practice)"
-          placeholderTextColor="#6b6f8c"
+          placeholderTextColor={color.textFaint}
           value={title}
           onChangeText={setTitle}
         />
@@ -86,14 +93,14 @@ export function EventsScreen({ householdId }: { householdId: string }) {
           <TextInput
             style={[styles.input, styles.half]}
             placeholder="YYYY-MM-DD"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={date}
             onChangeText={setDate}
           />
           <TextInput
             style={[styles.input, styles.half]}
             placeholder="HH:MM"
-            placeholderTextColor="#6b6f8c"
+            placeholderTextColor={color.textFaint}
             value={time}
             onChangeText={setTime}
           />
@@ -105,7 +112,7 @@ export function EventsScreen({ householdId }: { householdId: string }) {
       </View>
 
       {q.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spinner} />
+        <ActivityIndicator color={color.accent} style={styles.spinner} />
       ) : q.isError ? (
         <Text style={styles.err}>{msg(q.error)}</Text>
       ) : q.data && q.data.length > 0 ? (
@@ -118,21 +125,22 @@ export function EventsScreen({ householdId }: { householdId: string }) {
 }
 
 const styles = StyleSheet.create({
+  connect: { paddingHorizontal: 20, paddingTop: 16 },
   wrap: { flex: 1 },
   composer: { padding: 20, paddingBottom: 8, gap: 10 },
   row: { flexDirection: 'row', gap: 10 },
   half: { flex: 1 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15 },
-  addBtn: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
-  addText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, borderWidth: 1, borderColor: color.borderStrong },
+  addBtn: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  addText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
   busy: { opacity: 0.6 },
   spinner: { marginTop: 24 },
   list: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
-  card: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, gap: 4 },
+  card: { backgroundColor: color.surface, borderRadius: 14, padding: 14, gap: 4, borderWidth: 1, borderColor: color.border },
   when: { flexDirection: 'row', gap: 8, alignItems: 'baseline' },
-  day: { color: '#7c9bff', fontSize: 13, fontWeight: '600' },
-  time: { color: '#a6abcc', fontSize: 13 },
-  title: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  empty: { color: '#8a8fb0', textAlign: 'center', marginTop: 32, fontSize: 15 },
-  err: { color: '#ff9a9a', fontSize: 14 },
+  day: { color: color.accent, fontSize: 13, fontWeight: '600' },
+  time: { color: color.textMuted, fontSize: 13 },
+  title: { color: color.text, fontSize: 16, fontWeight: '600' },
+  empty: { color: color.textFaint, textAlign: 'center', marginTop: 32, fontSize: 15 },
+  err: { color: color.danger, fontSize: 14 },
 });

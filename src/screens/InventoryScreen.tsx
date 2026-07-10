@@ -21,9 +21,12 @@ import {
 } from '../api/movements';
 import { filterInventory, formatQuantity, groupBy, UNFILED, type InventoryView } from '../domain/inventory';
 import { useInventory } from '../hooks/useInventory';
+import { CopyForAI } from './CopyForAI';
 import { type StorageLocation } from '../api/locations';
 import { useLocations } from '../hooks/useLocations';
 import { ScanScreen } from './ScanScreen';
+
+import { color } from '../theme';
 
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
@@ -136,10 +139,16 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
         </View>
       ) : null}
 
+      {/*
+        Deliberately fed the WHOLE inventory, not `shown`. "Copy my kitchen" means
+        the kitchen, not whatever survived the filter chips I forgot were on.
+      */}
+      <CopyForAI items={inv.data ?? []} />
+
       <TextInput
         style={styles.input}
         placeholder="Search name, brand, or store"
-        placeholderTextColor="#6b6f8c"
+        placeholderTextColor={color.textFaint}
         value={search}
         onChangeText={setSearch}
       />
@@ -230,7 +239,7 @@ export function InventoryScreen({ householdId }: { householdId: string }) {
       {error ? <Text style={styles.err}>{error}</Text> : null}
 
       {inv.isLoading ? (
-        <ActivityIndicator color="#fff" style={styles.spin} />
+        <ActivityIndicator color={color.accent} style={styles.spin} />
       ) : inv.isError ? (
         <Text style={styles.err}>{msg(inv.error)}</Text>
       ) : total === 0 ? (
@@ -427,27 +436,27 @@ function BulkPanel(props: {
 
       <Toggle on={onBrand} set={setOnBrand} label="Set brand" />
       {onBrand ? (
-        <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="Brand (blank clears it)" placeholderTextColor="#6b6f8c" />
+        <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="Brand (blank clears it)" placeholderTextColor={color.textFaint} />
       ) : null}
 
       <Toggle on={onUnit} set={setOnUnit} label="Set unit" />
       {onUnit ? (
-        <TextInput style={styles.input} value={unit} onChangeText={setUnit} placeholder="e.g. package, lb, bottle" placeholderTextColor="#6b6f8c" />
+        <TextInput style={styles.input} value={unit} onChangeText={setUnit} placeholder="e.g. package, lb, bottle" placeholderTextColor={color.textFaint} />
       ) : null}
 
       <Toggle on={onPurchased} set={setOnPurchased} label="Set purchase date" />
       {onPurchased ? (
-        <TextInput style={styles.input} value={purchasedOn} onChangeText={setPurchasedOn} placeholder="YYYY-MM-DD (blank clears it)" placeholderTextColor="#6b6f8c" />
+        <TextInput style={styles.input} value={purchasedOn} onChangeText={setPurchasedOn} placeholder="YYYY-MM-DD (blank clears it)" placeholderTextColor={color.textFaint} />
       ) : null}
 
       <Toggle on={onMin} set={setOnMin} label="Set reorder point" />
       {onMin ? (
-        <TextInput style={styles.input} value={minQ} onChangeText={setMinQ} placeholder="Buy when below" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+        <TextInput style={styles.input} value={minQ} onChangeText={setMinQ} placeholder="Buy when below" placeholderTextColor={color.textFaint} keyboardType="decimal-pad" />
       ) : null}
 
       <Toggle on={onPar} set={setOnPar} label="Set ideal amount" />
       {onPar ? (
-        <TextInput style={styles.input} value={parQ} onChangeText={setParQ} placeholder="Ideal amount" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+        <TextInput style={styles.input} value={parQ} onChangeText={setParQ} placeholder="Ideal amount" placeholderTextColor={color.textFaint} keyboardType="decimal-pad" />
       ) : null}
 
       <Pressable style={[styles.save, (!anyField || busy) && styles.dim]} disabled={!anyField || busy} onPress={applyFields}>
@@ -459,13 +468,13 @@ function BulkPanel(props: {
         Amount changes are recorded as events, so each item gets its own delta.
       </Text>
       <View style={styles.row2}>
-        <TextInput style={[styles.input, styles.half]} value={setAmountTo} onChangeText={setSetAmountTo} placeholder="Set each to…" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+        <TextInput style={[styles.input, styles.half]} value={setAmountTo} onChangeText={setSetAmountTo} placeholder="Set each to…" placeholderTextColor={color.textFaint} keyboardType="decimal-pad" />
         <Pressable style={[styles.altBtn, busy && styles.dim]} disabled={busy} onPress={applySetAmount}>
           <Text style={styles.altBtnText}>Count</Text>
         </Pressable>
       </View>
       <View style={styles.row2}>
-        <TextInput style={[styles.input, styles.half]} value={useEach} onChangeText={setUseEach} placeholder="Use this much from each…" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+        <TextInput style={[styles.input, styles.half]} value={useEach} onChangeText={setUseEach} placeholder="Use this much from each…" placeholderTextColor={color.textFaint} keyboardType="decimal-pad" />
         <Pressable style={[styles.altBtn, busy && styles.dim]} disabled={busy} onPress={applyUseEach}>
           <Text style={styles.altBtnText}>Use</Text>
         </Pressable>
@@ -729,11 +738,11 @@ function ItemRow(props: {
         </Pressable>
       </View>
 
-      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor="#6b6f8c" />
-      <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="Brand" placeholderTextColor="#6b6f8c" />
+      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor={color.textFaint} />
+      <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="Brand" placeholderTextColor={color.textFaint} />
       <View style={styles.row2}>
-        <TextInput style={[styles.input, styles.half]} value={qty} onChangeText={setQty} placeholder="How much" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
-        <TextInput style={[styles.input, styles.half]} value={unit} onChangeText={setUnit} placeholder="Unit" placeholderTextColor="#6b6f8c" />
+        <TextInput style={[styles.input, styles.half]} value={qty} onChangeText={setQty} placeholder="How much" placeholderTextColor={color.textFaint} keyboardType="decimal-pad" />
+        <TextInput style={[styles.input, styles.half]} value={unit} onChangeText={setUnit} placeholder="Unit" placeholderTextColor={color.textFaint} />
       </View>
       <Text style={styles.note}>Changing the amount records a count. Use the quick actions to log what was used or thrown away.</Text>
 
@@ -763,12 +772,12 @@ function ItemRow(props: {
           </Pressable>
         ))}
       </View>
-      <TextInput style={styles.input} value={purchasedOn} onChangeText={setPurchasedOn} placeholder="Purchased on (YYYY-MM-DD)" placeholderTextColor="#6b6f8c" />
+      <TextInput style={styles.input} value={purchasedOn} onChangeText={setPurchasedOn} placeholder="Purchased on (YYYY-MM-DD)" placeholderTextColor={color.textFaint} />
 
       <Text style={styles.section}>REORDER</Text>
       <View style={styles.row2}>
-        <TextInput style={[styles.input, styles.half]} value={minQ} onChangeText={setMinQ} placeholder="Buy when below" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
-        <TextInput style={[styles.input, styles.half]} value={parQ} onChangeText={setParQ} placeholder="Ideal amount" placeholderTextColor="#6b6f8c" keyboardType="decimal-pad" />
+        <TextInput style={[styles.input, styles.half]} value={minQ} onChangeText={setMinQ} placeholder="Buy when below" placeholderTextColor={color.textFaint} keyboardType="decimal-pad" />
+        <TextInput style={[styles.input, styles.half]} value={parQ} onChangeText={setParQ} placeholder="Ideal amount" placeholderTextColor={color.textFaint} keyboardType="decimal-pad" />
       </View>
 
       <View style={styles.editorActions}>
@@ -790,88 +799,88 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   topRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   grow: { flex: 1 },
-  selectBtn: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 12, paddingHorizontal: 18, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  selectBtnOn: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
-  selectBtnText: { color: '#c4c8e0', fontWeight: '600' },
-  selectBtnTextOn: { color: '#ffffff' },
+  selectBtn: { borderWidth: 1, borderColor: color.borderStrong, borderRadius: 12, paddingHorizontal: 18, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  selectBtnOn: { borderColor: color.accent, backgroundColor: color.accentSoft },
+  selectBtnText: { color: color.textMuted, fontWeight: '600' },
+  selectBtnTextOn: { color: color.text },
   selBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  selCount: { color: '#F2F4FA', fontSize: 14, fontWeight: '600' },
+  selCount: { color: color.text, fontSize: 14, fontWeight: '600' },
   pickHit: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  box: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#3A4160', alignItems: 'center', justifyContent: 'center' },
-  boxOn: { backgroundColor: '#7c9bff', borderColor: '#7c9bff' },
-  boxTick: { color: '#0B0E1A', fontSize: 14, fontWeight: '700' },
-  rowSelected: { borderWidth: 1, borderColor: '#7c9bff' },
-  bulk: { backgroundColor: '#161a2e', borderRadius: 14, padding: 14, marginTop: 16, borderWidth: 1, borderColor: '#3A4160' },
-  bulkHead: { color: '#F2F4FA', fontSize: 16, fontWeight: '700' },
-  bulkHint: { color: '#8a8fb0', fontSize: 12, marginTop: 4, marginBottom: 8, lineHeight: 17 },
+  box: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: color.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  boxOn: { backgroundColor: color.accent, borderColor: color.accent },
+  boxTick: { color: color.accentInk, fontSize: 14, fontWeight: '700' },
+  rowSelected: { borderWidth: 1, borderColor: color.accent },
+  bulk: { backgroundColor: color.surface, borderRadius: 14, padding: 14, marginTop: 16, borderWidth: 1, borderColor: color.borderStrong },
+  bulkHead: { color: color.text, fontSize: 16, fontWeight: '700' },
+  bulkHint: { color: color.textFaint, fontSize: 12, marginTop: 4, marginBottom: 8, lineHeight: 17 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
-  toggleLabel: { color: '#c4c8e0', fontSize: 14 },
-  altBtn: { backgroundColor: '#2a2f4a', borderRadius: 12, paddingHorizontal: 20, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  altBtnText: { color: '#e8eaf6', fontWeight: '600' },
+  toggleLabel: { color: color.textMuted, fontSize: 14 },
+  altBtn: { backgroundColor: color.surfaceRaised, borderRadius: 12, paddingHorizontal: 20, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  altBtnText: { color: color.text, fontWeight: '600' },
   bulkDanger: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  dangerBtn: { flex: 1, borderWidth: 1, borderColor: '#4a3350', borderRadius: 12, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  dangerText: { color: '#d99ac0', fontWeight: '600', fontSize: 13 },
+  dangerBtn: { flex: 1, borderWidth: 1, borderColor: color.dangerSoft, borderRadius: 12, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  dangerText: { color: color.dangerSoft, fontWeight: '600', fontSize: 13 },
   wrap: { padding: 20, paddingBottom: 40 },
   backBar: { paddingHorizontal: 20, paddingVertical: 12 },
-  backText: { color: '#7c9bff', fontSize: 15 },
-  scanBtn: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 15, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  scanBtnText: { color: '#0f1220', fontWeight: '700', fontSize: 15 },
-  input: { backgroundColor: '#1a1e33', color: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, minHeight: 48, marginBottom: 8 },
+  backText: { color: color.accent, fontSize: 15 },
+  scanBtn: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 15, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  scanBtnText: { color: color.accentInk, fontWeight: '700', fontSize: 15 },
+  input: { backgroundColor: color.surfaceInput, color: color.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, minHeight: 48, marginBottom: 8, borderWidth: 1, borderColor: color.borderStrong },
   filterBar: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  link: { color: '#7c9bff', fontSize: 13 },
-  linkDim: { color: '#4a4f70' },
-  section: { color: '#8a8fb0', fontSize: 11, letterSpacing: 1.5, marginTop: 14, marginBottom: 6 },
+  link: { color: color.accent, fontSize: 13 },
+  linkDim: { color: color.textFaint },
+  section: { color: color.textFaint, fontSize: 11, letterSpacing: 1.5, marginTop: 14, marginBottom: 6 },
   groupBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   groupBarLinks: { flexDirection: 'row', gap: 12 },
-  miniLink: { color: '#6b7398', fontSize: 12 },
+  miniLink: { color: color.textFaint, fontSize: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
-  chipOn: { borderColor: '#7c9bff', backgroundColor: '#1e2440' },
-  chipText: { color: '#c4c8e0', fontSize: 13 },
-  chipTextOn: { color: '#ffffff', fontWeight: '600' },
+  chip: { borderWidth: 1, borderColor: color.borderStrong, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center' },
+  chipOn: { borderColor: color.accent, backgroundColor: color.accentSoft },
+  chipText: { color: color.textMuted, fontSize: 13 },
+  chipTextOn: { color: color.text, fontWeight: '600' },
   summary: { marginTop: 18, marginBottom: 4 },
-  count: { color: '#8a8fb0', fontSize: 13 },
+  count: { color: color.textFaint, fontSize: 13 },
   group: { marginTop: 14 },
-  groupHead: { color: '#7c9bff', fontSize: 11, letterSpacing: 1.2, fontWeight: '700', marginBottom: 8 },
-  row: { flexDirection: 'row', backgroundColor: '#161a2e', borderRadius: 12, padding: 12, marginBottom: 8, gap: 12 },
+  groupHead: { color: color.accent, fontSize: 11, letterSpacing: 1.2, fontWeight: '700', marginBottom: 8 },
+  row: { flexDirection: 'row', backgroundColor: color.surface, borderRadius: 12, padding: 12, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: color.border },
   rowBody: { flex: 1 },
-  rowTitle: { color: '#ffffff', fontSize: 15, fontWeight: '600' },
-  rowDetail: { color: '#a6abcc', fontSize: 13, marginTop: 2 },
-  rowMeta: { color: '#6b6f8c', fontSize: 11, marginTop: 3 },
+  rowTitle: { color: color.text, fontSize: 15, fontWeight: '600' },
+  rowDetail: { color: color.textMuted, fontSize: 13, marginTop: 2 },
+  rowMeta: { color: color.textFaint, fontSize: 11, marginTop: 3 },
   levelWrap: { alignItems: 'flex-end', gap: 2 },
-  level: { color: '#c4c8e0', fontSize: 14 },
-  restock: { color: '#ffb86b', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  reorder: { color: '#9fe0b0', fontSize: 11 },
-  editHint: { color: '#7c9bff', fontSize: 11, marginTop: 4 },
+  level: { color: color.textMuted, fontSize: 14 },
+  restock: { color: color.warning, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  reorder: { color: color.success, fontSize: 11 },
+  editHint: { color: color.accent, fontSize: 11, marginTop: 4 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
-  quick: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' },
-  quickText: { color: '#c4c8e0', fontSize: 12, fontWeight: '600' },
-  quickOff: { color: '#4a4f70' },
-  quickBad: { borderWidth: 1, borderColor: '#4a3350', borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' },
-  quickBadText: { color: '#d99ac0', fontSize: 12, fontWeight: '600' },
-  confirm: { marginTop: 10, backgroundColor: '#1F2438', borderRadius: 12, padding: 12, gap: 8 },
-  confirmText: { color: '#F2F4FA', fontSize: 14 },
-  confirmYes: { backgroundColor: '#d99ac0', borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  confirmYesText: { color: '#0B0E1A', fontWeight: '700' },
-  confirmAlt: { borderWidth: 1, borderColor: '#3A4160', borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  confirmAltText: { color: '#c4c8e0' },
+  quick: { borderWidth: 1, borderColor: color.borderStrong, borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' },
+  quickText: { color: color.textMuted, fontSize: 12, fontWeight: '600' },
+  quickOff: { color: color.textFaint },
+  quickBad: { borderWidth: 1, borderColor: color.dangerSoft, borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' },
+  quickBadText: { color: color.dangerSoft, fontSize: 12, fontWeight: '600' },
+  confirm: { marginTop: 10, backgroundColor: color.surfaceInput, borderRadius: 12, padding: 12, gap: 8 },
+  confirmText: { color: color.text, fontSize: 14 },
+  confirmYes: { backgroundColor: color.dangerSoft, borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  confirmYesText: { color: color.accentInk, fontWeight: '700' },
+  confirmAlt: { borderWidth: 1, borderColor: color.borderStrong, borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  confirmAltText: { color: color.textMuted },
   confirmNo: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
-  confirmNoText: { color: '#8a8fb0' },
+  confirmNoText: { color: color.textFaint },
   saveBar: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  editorTitle: { color: '#F2F4FA', fontSize: 16, fontWeight: '700', flex: 1 },
-  editor: { backgroundColor: '#161a2e', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#3a3f60' },
+  editorTitle: { color: color.text, fontSize: 16, fontWeight: '700', flex: 1 },
+  editor: { backgroundColor: color.surface, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: color.border },
   row2: { flexDirection: 'row', gap: 8 },
   half: { flex: 1 },
   editorActions: { flexDirection: 'row', gap: 8, marginTop: 14, alignItems: 'center' },
-  save: { backgroundColor: '#7c9bff', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 26 },
-  saveText: { color: '#0f1220', fontWeight: '700' },
+  save: { backgroundColor: color.accent, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 26 },
+  saveText: { color: color.accentInk, fontWeight: '700' },
   dim: { opacity: 0.6 },
   cancel: { paddingVertical: 12, paddingHorizontal: 14 },
-  cancelText: { color: '#8a8fb0' },
+  cancelText: { color: color.textFaint },
   remove: { paddingVertical: 12, paddingHorizontal: 14, marginLeft: 'auto' },
-  removeText: { color: '#d99ac0' },
-  note: { color: '#6b6f8c', fontSize: 11, marginTop: 10 },
+  removeText: { color: color.dangerSoft },
+  note: { color: color.textFaint, fontSize: 11, marginTop: 10 },
   spin: { marginTop: 20 },
-  empty: { color: '#8a8fb0', fontSize: 15, marginTop: 20 },
-  err: { color: '#ff9a9a', fontSize: 14, marginTop: 12 },
+  empty: { color: color.textFaint, fontSize: 15, marginTop: 20 },
+  err: { color: color.danger, fontSize: 14, marginTop: 12 },
 });

@@ -753,6 +753,235 @@ export type Database = {
           },
         ]
       }
+      kitchen_shifts: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          deleted_at: string | null
+          detail: string | null
+          household_id: string
+          id: string
+          original_claimed_by: string | null
+          role: Database["public"]["Enums"]["kitchen_role"]
+          shift_date: string
+          skipped_at: string | null
+          updated_at: string
+          version: number
+          week_start: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          detail?: string | null
+          household_id: string
+          id?: string
+          original_claimed_by?: string | null
+          role: Database["public"]["Enums"]["kitchen_role"]
+          shift_date: string
+          skipped_at?: string | null
+          updated_at?: string
+          version?: number
+          week_start: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          detail?: string | null
+          household_id?: string
+          id?: string
+          original_claimed_by?: string | null
+          role?: Database["public"]["Enums"]["kitchen_role"]
+          shift_date?: string
+          skipped_at?: string | null
+          updated_at?: string
+          version?: number
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_shifts_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_shifts_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_shifts_original_claimed_by_fkey"
+            columns: ["original_claimed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_shifts_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_lots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          expires_on: string | null
+          household_id: string
+          id: string
+          item_id: string
+          note: string | null
+          opened_on: string | null
+          purchased_on: string | null
+          quantity: number
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          expires_on?: string | null
+          household_id: string
+          id?: string
+          item_id: string
+          note?: string | null
+          opened_on?: string | null
+          purchased_on?: string | null
+          quantity?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          expires_on?: string | null
+          household_id?: string
+          id?: string
+          item_id?: string
+          note?: string | null
+          opened_on?: string | null
+          purchased_on?: string | null
+          quantity?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_lots_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_ingredients: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          household_id: string
+          id: string
+          inventory_item_id: string | null
+          match_name: string | null
+          name: string
+          optional: boolean
+          quantity: number | null
+          recipe_id: string
+          sort_order: number
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          household_id: string
+          id?: string
+          inventory_item_id?: string | null
+          match_name?: never
+          name: string
+          optional?: boolean
+          quantity?: number | null
+          recipe_id: string
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          household_id?: string
+          id?: string
+          inventory_item_id?: string | null
+          match_name?: never
+          name?: string
+          optional?: boolean
+          quantity?: number | null
+          recipe_id?: string
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_ingredients_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_movements: {
         Row: {
           created_at: string
@@ -813,8 +1042,8 @@ export type Database = {
           name: string
           notes: string | null
           par_quantity: number | null
-          purchased_on: string | null
           preferred_store: string | null
+          purchased_on: string | null
           quantity: number | null
           reserved_quantity: number
           unit: string | null
@@ -839,8 +1068,8 @@ export type Database = {
           name: string
           notes?: string | null
           par_quantity?: number | null
-          purchased_on?: string | null
           preferred_store?: string | null
+          purchased_on?: string | null
           quantity?: number | null
           reserved_quantity?: number
           unit?: string | null
@@ -865,8 +1094,8 @@ export type Database = {
           name?: string
           notes?: string | null
           par_quantity?: number | null
-          purchased_on?: string | null
           preferred_store?: string | null
+          purchased_on?: string | null
           quantity?: number | null
           reserved_quantity?: number
           unit?: string | null
@@ -874,13 +1103,6 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "inventory_items_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "inventory_items_household_id_fkey"
             columns: ["household_id"]
@@ -1877,6 +2099,8 @@ export type Database = {
           quantity: number | null
           requester_id: string
           state: Database["public"]["Enums"]["request_state"]
+          stock_note: string | null
+          stocked_at: string | null
           store: string | null
           substitutions: string | null
           unit: string | null
@@ -1897,6 +2121,8 @@ export type Database = {
           quantity?: number | null
           requester_id: string
           state?: Database["public"]["Enums"]["request_state"]
+          stock_note?: string | null
+          stocked_at?: string | null
           store?: string | null
           substitutions?: string | null
           unit?: string | null
@@ -1917,6 +2143,8 @@ export type Database = {
           quantity?: number | null
           requester_id?: string
           state?: Database["public"]["Enums"]["request_state"]
+          stock_note?: string | null
+          stocked_at?: string | null
           store?: string | null
           substitutions?: string | null
           unit?: string | null
@@ -2052,6 +2280,70 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      my_calendar_connections: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          household_id: string
+          provider: string
+          external_account_id: string | null
+          share_mode: string
+          last_synced_at: string | null
+          last_error: string | null
+          created_at: string
+        }[]
+      }
+      ensure_kitchen_week: {
+        Args: { p_household: string; p_week_start: string }
+        Returns: number
+      }
+      claim_shift: {
+        Args: { p_shift: string; p_expected_version: number }
+        Returns: Database["public"]["Tables"]["kitchen_shifts"]["Row"]
+      }
+      release_shift: {
+        Args: { p_shift: string; p_expected_version: number }
+        Returns: Database["public"]["Tables"]["kitchen_shifts"]["Row"]
+      }
+      cover_shift: {
+        Args: { p_shift: string; p_user: string; p_expected_version: number }
+        Returns: Database["public"]["Tables"]["kitchen_shifts"]["Row"]
+      }
+      complete_shift: {
+        Args: { p_shift: string; p_expected_version: number }
+        Returns: Database["public"]["Tables"]["kitchen_shifts"]["Row"]
+      }
+      skip_shift: {
+        Args: { p_shift: string; p_expected_version: number }
+        Returns: Database["public"]["Tables"]["kitchen_shifts"]["Row"]
+      }
+      copy_kitchen_week: {
+        Args: { p_household: string; p_from: string; p_to: string }
+        Returns: number
+      }
+      consume_lot: {
+        Args: {
+          p_lot: string
+          p_amount: number
+          p_reason?: Database["public"]["Enums"]["inventory_reason"]
+          p_note?: string | null
+        }
+        Returns: number
+      }
+      cook_meal: {
+        Args: { p_meal: string }
+        Returns: number
+      }
+      recipe_pantry_match: {
+        Args: { p_household: string }
+        Returns: {
+          recipe_id: string
+          recipe_name: string
+          required_count: number
+          have_count: number
+          missing: string[]
+        }[]
+      }
       claim_task: {
         Args: { p_task_id: string; p_expected_version: number }
         Returns: Database["public"]["Tables"]["tasks"]["Row"]
@@ -2184,6 +2476,12 @@ export type Database = {
       }
     }
     Enums: {
+      kitchen_role:
+        | "am_unload"
+        | "pm_lead"
+        | "pm_helper"
+        | "pm_wipe"
+        | "fridge"
       inventory_reason:
         | "purchased"
         | "counted"
@@ -2388,6 +2686,7 @@ export const Constants = {
       ],
       inventory_count_mode: ["exact", "approximate"],
       inventory_level: ["plenty", "some", "low", "out", "unknown"],
+      kitchen_role: ["am_unload", "pm_lead", "pm_helper", "pm_wipe", "fridge"],
       issue_state: [
         "reported",
         "reviewing",

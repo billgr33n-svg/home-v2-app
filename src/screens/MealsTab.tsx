@@ -4,6 +4,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MealPlanScreen } from './MealPlanScreen';
 import { MealsScreen } from './MealsScreen';
 
+import { color } from '../theme';
+
 /**
  * The Meals tab holds two related but distinct things:
  *   Plan   -- the week ahead: what's for breakfast/lunch/dinner, and who cooks
@@ -34,8 +36,8 @@ export function MealsTab({ householdId }: { householdId: string }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   toggle: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 2 },
-  seg: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: '#161a2e' },
-  segOn: { backgroundColor: '#1e2440', borderWidth: 1, borderColor: '#7c9bff' },
-  segText: { color: '#8a8fb0', fontSize: 14, fontWeight: '600' },
-  segTextOn: { color: '#ffffff' },
+  seg: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: color.surface },
+  segOn: { backgroundColor: color.accentSoft, borderWidth: 1, borderColor: color.accent },
+  segText: { color: color.textFaint, fontSize: 14, fontWeight: '600' },
+  segTextOn: { color: color.text },
 });
