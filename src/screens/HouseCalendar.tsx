@@ -342,7 +342,7 @@ export function CalendarCard(props: { householdId: string }) {
         <Text style={styles.agendaEmpty}>Nothing on the calendar today.</Text>
       ) : (
         <View style={styles.agenda}>
-          {events.map((e) => (
+          {events.map((e: EventView) => (
             <Pressable key={e.id} style={styles.agendaRow} onPress={() => setOpenEvent(e)}>
               <Text style={styles.agendaWhen}>{e.allDay ? 'All day' : timeLabel(e.startsAt)}</Text>
               <View style={styles.agendaBody}>

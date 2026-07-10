@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 import { useQueryClient } from '@tanstack/react-query';
 
 import { resolveMaintenanceIssue } from '../api/maintenance';
-import { respondToDinner, setMealCook } from '../api/meals';
+import { respondToDinner, setMealCook, type MealView } from '../api/meals';
 import { respondToPoll } from '../api/polls';
 import { assignRideDriver } from '../api/rides';
 import { assignTask, completeTask } from '../api/tasks';
@@ -82,7 +82,7 @@ function TonightCard(props: { householdId: string; onOpenMeals?: () => void }) {
   if (q.isLoading) return null;
 
   const today = dateKey(new Date());
-  const dinner = (q.data ?? []).find((m) => dateKey(new Date(m.plannedAt)) === today) ?? null;
+  const dinner = (q.data ?? []).find((m: MealView) => dateKey(new Date(m.plannedAt)) === today) ?? null;
 
   const respond = async (r: 'home' | 'away') => {
     if (!dinner) return;
@@ -342,7 +342,7 @@ export function TodayScreen({
             <Text style={styles.clearBody}>No decisions or exceptions right now.</Text>
           </View>
         ) : (
-          items.map((item) => renderItem(item))
+          items.map((item: TodayItem) => renderItem(item))
         )}
 
         <KitchenTodayCard householdId={householdId} />
