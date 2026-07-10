@@ -14,6 +14,7 @@ export type TodayItemKind =
   | 'ride_unassigned'
   | 'ride'
   | 'dinner_response_needed'
+  | 'poll_response_needed'
   | 'announcement'
   | 'task_due'
   | 'maintenance';
@@ -28,12 +29,15 @@ export interface TodayItem {
   needsDecision: boolean;
   version?: number;
   ownerId?: string | null;
+  /** Poll options, carried so Today can record a vote in place. */
+  options?: string[];
 }
 
 export interface TodayInput {
   activeMemberCount: number;
   rides: { id: string; driverId: string | null; destination: string; pickup: string | null; version?: number }[];
   meals: { id: string; title: string; respondedCount: number }[];
+  polls: { id: string; question: string; outstandingCount: number; options: string[] }[];
   announcements: { id: string; title: string }[];
   tasks: { id: string; title: string; ownerName: string | null; ownerId?: string | null; version?: number }[];
   maintenance: { id: string; title: string }[];
@@ -68,6 +72,24 @@ export function buildTodayFeed(input: TodayInput): TodayItem[] {
         detail: `${missing} response${missing === 1 ? '' : 's'} outstanding`,
         priority: 'P1',
         needsDecision: true,
+      });
+    }
+  }
+
+  // An open poll with anyone still to vote is a decision the house owes an
+  // answer to. It rides lower than a missed dinner (P2), but it belongs on
+  // Today rather than only in the Polls tab, where nobody looks by reflex.
+  for (const p of input.polls) {
+    if (p.outstandingCount > 0) {
+      items.push({
+        id: `poll-${p.id}`,
+        entityId: p.id,
+        kind: 'poll_response_needed',
+        title: `Poll: ${p.question}`,
+        detail: `${p.outstandingCount} still to answer`,
+        priority: 'P2',
+        needsDecision: true,
+        options: p.options,
       });
     }
   }
