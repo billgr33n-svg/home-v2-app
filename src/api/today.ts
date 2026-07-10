@@ -15,7 +15,7 @@ function dayBoundsISO(now = new Date()): { start: string; end: string } {
 export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> {
   const { start, end } = dayBoundsISO();
 
-  const [membersRes, ridesRes, mealsRes, annRes, tasksRes, maintRes, profilesRes] = await Promise.all([
+  const [membersRes, ridesRes, mealsRes, pollsRes, annRes, tasksRes, maintRes, profilesRes] = await Promise.all([
     supabase
       .from('household_memberships')
       .select('id', { count: 'exact', head: true })
@@ -35,6 +35,12 @@ export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> 
       .lte('planned_at', end)
       .is('deleted_at', null),
     supabase
+      .from('polls')
+      .select('id,question,options')
+      .eq('household_id', householdId)
+      .is('closed_at', null)
+      .is('deleted_at', null),
+    supabase
       .from('announcements')
       .select('id,title,state')
       .eq('household_id', householdId)
@@ -42,7 +48,7 @@ export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> 
       .is('deleted_at', null),
     supabase
       .from('tasks')
-      .select('id,title,owner_id,state,version')
+      .select('id,title,owner_id,state,due_at,version')
       .eq('household_id', householdId)
       .not('state', 'in', '(completed,verified,canceled,skipped)')
       .is('deleted_at', null),
@@ -55,9 +61,11 @@ export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> 
     supabase.from('profiles').select('id,display_name'),
   ]);
 
-  for (const res of [membersRes, ridesRes, mealsRes, annRes, tasksRes, maintRes, profilesRes]) {
+  for (const res of [membersRes, ridesRes, mealsRes, pollsRes, annRes, tasksRes, maintRes, profilesRes]) {
     if (res.error) throw res.error;
   }
+
+  const activeMemberCount = membersRes.count ?? 0;
 
   const mealRows = mealsRes.data ?? [];
   const respByMeal: Record<string, number> = {};
@@ -70,11 +78,30 @@ export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> 
     for (const row of resp ?? []) respByMeal[row.meal_id] = (respByMeal[row.meal_id] ?? 0) + 1;
   }
 
+  // Distinct responders per open poll: outstanding is members minus who has voted.
+  const pollRows = pollsRes.data ?? [];
+  const respByPoll: Record<string, Set<string>> = {};
+  if (pollRows.length > 0) {
+    const { data: presp, error } = await supabase
+      .from('poll_responses')
+      .select('poll_id,user_id')
+      .in('poll_id', pollRows.map((p) => p.id));
+    if (error) throw error;
+    for (const row of presp ?? []) (respByPoll[row.poll_id] ??= new Set<string>()).add(row.user_id);
+  }
+
+  // Today shows exceptions, not the whole backlog: keep a task only if it is
+  // unassigned (it needs an owner) or due today / overdue. An assigned task with
+  // a future or absent due date lives in the Tasks tab, not here.
+  const taskRows = (tasksRes.data ?? []).filter(
+    (t) => t.owner_id == null || (t.due_at != null && t.due_at <= end),
+  );
+
   const nameById: Record<string, string> = {};
   for (const p of profilesRes.data ?? []) nameById[p.id] = p.display_name;
 
   const input: TodayInput = {
-    activeMemberCount: membersRes.count ?? 0,
+    activeMemberCount,
     rides: (ridesRes.data ?? []).map((r) => ({
       id: r.id,
       driverId: r.driver_id,
@@ -83,8 +110,18 @@ export async function fetchTodayFeed(householdId: string): Promise<TodayItem[]> 
       version: r.version,
     })),
     meals: mealRows.map((m) => ({ id: m.id, title: m.title, respondedCount: respByMeal[m.id] ?? 0 })),
+    polls: pollRows.map((p) => {
+      const options = Array.isArray(p.options) ? (p.options as unknown[]).map(String) : [];
+      const responded = respByPoll[p.id]?.size ?? 0;
+      return {
+        id: p.id,
+        question: p.question,
+        outstandingCount: Math.max(0, activeMemberCount - responded),
+        options,
+      };
+    }),
     announcements: (annRes.data ?? []).map((a) => ({ id: a.id, title: a.title })),
-    tasks: (tasksRes.data ?? []).map((t) => ({
+    tasks: taskRows.map((t) => ({
       id: t.id,
       title: t.title,
       ownerId: t.owner_id,
